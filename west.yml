@@ -7,3 +7,4 @@ manifest:
     - name: my-basic-hal
       remote: fozi
       revision: main
+      path: hal-interface
