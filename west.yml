@@ -1,0 +1,9 @@
+manifest:
+  version: 0.1.0
+  remotes:
+    - name: fozi
+      url-base: https://github.com/Fo-Zi
+  projects:
+    - name: my-basic-hal
+      remote: fozi
+      revision: main
