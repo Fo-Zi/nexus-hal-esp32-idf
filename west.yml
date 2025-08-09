@@ -1,5 +1,5 @@
 manifest:
-  version: 0.1.0
+  version: 0.12
   remotes:
     - name: fozi
       url-base: https://github.com/Fo-Zi
