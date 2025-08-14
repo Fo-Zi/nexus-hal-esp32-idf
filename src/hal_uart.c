@@ -9,7 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-static void hal_config_to_esp_config(hal_uart_config_t *config, uart_config_t *esp_config) {
+static void hal_config_to_esp_config(struct hal_uart_config *config, uart_config_t *esp_config) {
     esp_config->baud_rate = config->basic_config.baudrate;
 
     switch (config->basic_config.data_bits) {
@@ -60,7 +60,7 @@ hal_uart_result_t hal_uart_deinit(struct hal_uart_context * uart_ctxt) {
     return esp_err_to_uart_hal_err(err);
 }
 
-hal_uart_result_t hal_uart_set_config(struct hal_uart_context * uart_ctxt, hal_uart_config_t *cfg) {
+hal_uart_result_t hal_uart_set_config(struct hal_uart_context * uart_ctxt, struct hal_uart_config *cfg) {
     uart_config_t esp_uart_config;
     hal_config_to_esp_config(cfg, &esp_uart_config);
 
@@ -73,7 +73,7 @@ hal_uart_result_t hal_uart_set_config(struct hal_uart_context * uart_ctxt, hal_u
     return esp_err_to_uart_hal_err(err);
 }
 
-hal_uart_result_t hal_uart_get_config(struct hal_uart_context * uart_ctxt, hal_uart_config_t *cfg) {
+hal_uart_result_t hal_uart_get_config(struct hal_uart_context * uart_ctxt, struct hal_uart_config *cfg) {
     return HAL_UART_ERR_OTHER; // esp-idf does not provide a function to get config
 }
 

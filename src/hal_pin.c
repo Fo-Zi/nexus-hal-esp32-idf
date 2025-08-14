@@ -6,10 +6,9 @@
 #include "esp_err.h"
 
 void hal_config_to_esp_config(struct hal_pin_config * config, gpio_config_t * esp_pin_config){
-    esp_pin_config->mode            = config->mode         ;
-    esp_pin_config->intr_type       = config->intr_type    ;
-    esp_pin_config->pull_up_en      = config->pull_up_en   ;
-    esp_pin_config->pull_down_en    = config->pull_down_en ;
+    esp_pin_config->intr_type       = config->impl_config->intr_type ;
+    esp_pin_config->pull_up_en      = config->impl_config->pull_up_en   ;
+    esp_pin_config->pull_down_en    = config->impl_config->pull_down_en ;
 };
 
 static bool isr_service_initialized = false;
@@ -58,12 +57,12 @@ hal_pin_result_t hal_pin_get_config(struct hal_pin_context * pin_ctxt, struct ha
 };
 
 hal_pin_result_t hal_pin_get_state(struct hal_pin_context * pin_ctxt, hal_pin_state_t *value){
-    *value = gpio_get_level(pin_ctxt->pin_num);
+    *value = gpio_get_level(pin_ctxt->pin_id->num);
     return HAL_PIN_OK;
 };
 
 hal_pin_result_t hal_pin_set_state(struct hal_pin_context * pin_ctxt, hal_pin_state_t value){
-    hal_pin_result_t result = esp_err_to_i2c_hal_err(gpio_set_level(pin_ctxt->pin_num, value));
+    hal_pin_result_t result = esp_err_to_i2c_hal_err(gpio_set_level(pin_ctxt->pin_id->num, value));
     if(result != HAL_PIN_OK){
 
     }
@@ -71,7 +70,7 @@ hal_pin_result_t hal_pin_set_state(struct hal_pin_context * pin_ctxt, hal_pin_st
 };
 
 hal_pin_result_t hal_pin_set_callback( struct hal_pin_context * pin_ctxt, hal_pin_callback_t callback ){
-    hal_pin_result_t result = esp_err_to_pin_hal_err(gpio_isr_handler_add(pin_ctxt->pin_num, callback, NULL));
+    hal_pin_result_t result = esp_err_to_pin_hal_err(gpio_isr_handler_add(pin_ctxt->pin_id->num, callback, NULL));
     if(result != HAL_PIN_OK){
 
     }

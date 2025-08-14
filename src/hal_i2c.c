@@ -1,3 +1,4 @@
+#include "esp_log.h"
 #include "hal_esp32_defs.h"
 
 #include "hal_common.h"
@@ -7,72 +8,106 @@
 #include "esp_err.h"
 #include "driver/i2c.h"
 
-void hal_config_to_esp_config(struct hal_i2c_config * config ,i2c_config_t * esp_config){
-    esp_config->mode                = config->mode;
-    esp_config->sda_io_num          = config->sda_io_num;
-    esp_config->scl_io_num          = config->scl_io_num;
-    esp_config->sda_pullup_en       = config->sda_pullup_en;
-    esp_config->scl_pullup_en       = config->scl_pullup_en;
-    esp_config->master.clk_speed    = config->clk_speed;
+static void hal_config_to_esp_config(struct hal_i2c_config * config ,i2c_config_t * esp_config){
+    esp_config->mode                = I2C_MODE_MASTER;
+    esp_config->sda_io_num          = config->impl_config->sda_io_num;
+    esp_config->scl_io_num          = config->impl_config->scl_io_num;
+    esp_config->sda_pullup_en       = config->impl_config->sda_pullup_en;
+    esp_config->scl_pullup_en       = config->impl_config->scl_pullup_en;
+    esp_config->master.clk_speed    = config->impl_config->clk_speed;
 };
 
-hal_i2c_result_t hal_i2c_init(struct hal_i2c_context * ctxt){
+hal_i2c_result_t hal_i2c_master_init(struct hal_i2c_context * ctxt){
     return HAL_I2C_OK;
 };
 
-hal_i2c_result_t hal_i2c_deinit(struct hal_i2c_context *i2c_ctx){
-    esp_err_t ret_err = i2c_driver_delete(i2c_ctx->i2c_id);
-    if(ret_err != ESP_OK){
-        return ret_err;
+hal_i2c_result_t hal_i2c_master_deinit(struct hal_i2c_context *i2c_ctx){
+    BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(1000) );
+    if(mutex_ret_err == pdTRUE){
+        esp_err_t ret_err = i2c_driver_delete(i2c_ctx->i2c_bus_id);
+        if(ret_err != ESP_OK){
+            return ret_err;
+        }
+        xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
+        return HAL_I2C_OK;
+    }else{
+        return HAL_I2C_ERR_BUS_BUSY;
     }
-    return HAL_I2C_OK;
 };
 
-hal_i2c_result_t hal_i2c_set_config(struct hal_i2c_context *i2c_ctx, struct hal_i2c_config *config){
+hal_i2c_result_t hal_i2c_master_set_config(struct hal_i2c_context *i2c_ctx, struct hal_i2c_config *config){
 
     esp_err_t ret_err;
-    i2c_config_t esp_config;
+    hal_i2c_result_t i2c_result = HAL_I2C_OK;
+    i2c_config_t esp_config = {0};
 
     hal_config_to_esp_config(config ,&esp_config);
-    ret_err = i2c_param_config(config->port ,&esp_config);
-    if(ret_err != ESP_OK){
-        return esp_err_to_i2c_hal_err(ret_err);
-    };
+    
+    BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(1000) );
+    if(mutex_ret_err == pdTRUE){
+        ret_err = i2c_param_config(config->i2c_bus_id ,&esp_config);
+        if(ret_err != ESP_OK){
+            i2c_result =  esp_err_to_i2c_hal_err(ret_err);
+            goto free_mutex_and_ret;
+        };
 
-    ret_err = i2c_driver_install(i2c_ctx->i2c_id, config->mode, 0 , 0 , 0);
-    if(ret_err != ESP_OK){
-        return esp_err_to_i2c_hal_err(ret_err);
-    };
+        ret_err = i2c_driver_install(i2c_ctx->i2c_bus_id, I2C_MODE_MASTER, 0 , 0 , 0);
+        if(ret_err != ESP_OK){
+            i2c_result = esp_err_to_i2c_hal_err(ret_err);
+            goto free_mutex_and_ret;
+        };
+        
+        free_mutex_and_ret:
+            xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
+            return i2c_result;
 
-    return HAL_I2C_OK;
+    }else{
+        return HAL_I2C_ERR_BUS_BUSY;
+    }
+
 };
 
-hal_i2c_result_t hal_i2c_get_config(struct hal_i2c_context *i2c_ctx, struct hal_i2c_config *config){
+hal_i2c_result_t hal_i2c_master_get_config(struct hal_i2c_context *i2c_ctx, struct hal_i2c_config *config){
     return HAL_I2C_ERR_OTHER;
 };
 
-hal_i2c_result_t hal_i2c_write(struct hal_i2c_context *i2c_ctx, uint8_t dev_address, const uint8_t *data, size_t len, hal_timeout_ms timeout_ms){
-    return esp_err_to_i2c_hal_err(
-        i2c_master_write_to_device(
-            i2c_ctx->i2c_id,
-            dev_address,
-            data,
-            len,
-            pdMS_TO_TICKS(timeout_ms)
-        )
-    );
+hal_i2c_result_t hal_i2c_master_write(struct hal_i2c_context *i2c_ctx, uint8_t dev_address, const uint8_t *data, size_t len, hal_timeout_ms timeout){
+
+    BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    if(mutex_ret_err == pdTRUE){
+        hal_i2c_result_t i2c_result = esp_err_to_i2c_hal_err(
+            i2c_master_write_to_device(
+                i2c_ctx->i2c_bus_id,
+                dev_address,
+                data,
+                len,
+                pdMS_TO_TICKS(timeout)
+            )
+        );
+        xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
+        return i2c_result;
+    }else{
+        return HAL_I2C_ERR_BUS_BUSY;
+    }
 };
 
-hal_i2c_result_t hal_i2c_read(struct hal_i2c_context *i2c_ctx, uint8_t dev_address, uint8_t *data, size_t len, hal_timeout_ms timeout_ms){
-    return esp_err_to_i2c_hal_err(
-        i2c_master_read_from_device(
-            i2c_ctx->i2c_id,
-            dev_address,
-            data,
-            len,
-            pdMS_TO_TICKS(timeout_ms)
-        )
-    );
+hal_i2c_result_t hal_i2c_read(struct hal_i2c_context *i2c_ctx, uint8_t dev_address, uint8_t *data, size_t len, hal_timeout_ms timeout){
+    BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    if(mutex_ret_err == pdTRUE){
+        hal_i2c_result_t i2c_result = esp_err_to_i2c_hal_err(
+            i2c_master_read_from_device(
+                i2c_ctx->i2c_bus_id,
+                dev_address,
+                data,
+                len,
+                pdMS_TO_TICKS(timeout)
+            )
+        );
+        xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
+        return i2c_result;
+    }else{
+        return HAL_I2C_ERR_BUS_BUSY;
+    }
 };
 
 hal_i2c_result_t hal_i2c_write_read_reg(
@@ -82,15 +117,22 @@ hal_i2c_result_t hal_i2c_write_read_reg(
     uint8_t *data, size_t data_len,
     hal_timeout_ms timeout
 ){
-    return esp_err_to_i2c_hal_err(
-        i2c_master_write_read_device(
-            i2c_ctx->i2c_id,
-            dev_address,
-            reg_address,
-            reg_len,
-            data,
-            data_len,
-            pdMS_TO_TICKS(timeout)
-        )
-    );
+    BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    if(mutex_ret_err == pdTRUE){
+        hal_i2c_result_t i2c_result = esp_err_to_i2c_hal_err(
+            i2c_master_write_read_device(
+                i2c_ctx->i2c_bus_id,
+                dev_address,
+                reg_address,
+                reg_len,
+                data,
+                data_len,
+                pdMS_TO_TICKS(timeout)
+            )
+        );
+        xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
+        return i2c_result;
+    }else{
+        return HAL_I2C_ERR_BUS_BUSY;
+    }
 };
