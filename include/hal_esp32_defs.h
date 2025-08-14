@@ -1,6 +1,7 @@
 #ifndef HAL_IMPL_ESP32_DEFS_H
 #define HAL_IMPL_ESP32_DEFS_H
 
+#include "esp_err.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -70,6 +71,5 @@ typedef struct {
     bool is_initialized;
     bool is_driver_installed;
 } hal_uart_context;
-
 
 #endif // HAL_ESP32_SPECIFICS_H
