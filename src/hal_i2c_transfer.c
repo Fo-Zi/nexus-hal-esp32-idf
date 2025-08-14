@@ -4,7 +4,7 @@
 #include "driver/i2c.h"
 
 hal_i2c_result_t hal_i2c_perform_transfer(
-    hal_i2c_context_t * ctx,
+    struct hal_i2c_context * ctx,
     hal_i2c_transfer_op_t *ops,
     size_t num_ops,
     hal_timeout_ms timeout_ms

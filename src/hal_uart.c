@@ -51,16 +51,16 @@ static void hal_config_to_esp_config(hal_uart_config_t *config, uart_config_t *e
 
 };
 
-hal_uart_result_t hal_uart_init(hal_uart_context_t * uart_ctxt) {
+hal_uart_result_t hal_uart_init(struct hal_uart_context * uart_ctxt) {
     return HAL_UART_OK;
 }
 
-hal_uart_result_t hal_uart_deinit(hal_uart_context_t * uart_ctxt) {
+hal_uart_result_t hal_uart_deinit(struct hal_uart_context * uart_ctxt) {
     esp_err_t err = uart_driver_delete(uart_ctxt->uart_id);
     return esp_err_to_uart_hal_err(err);
 }
 
-hal_uart_result_t hal_uart_set_config(hal_uart_context_t * uart_ctxt, hal_uart_config_t *cfg) {
+hal_uart_result_t hal_uart_set_config(struct hal_uart_context * uart_ctxt, hal_uart_config_t *cfg) {
     uart_config_t esp_uart_config;
     hal_config_to_esp_config(cfg, &esp_uart_config);
 
@@ -73,11 +73,11 @@ hal_uart_result_t hal_uart_set_config(hal_uart_context_t * uart_ctxt, hal_uart_c
     return esp_err_to_uart_hal_err(err);
 }
 
-hal_uart_result_t hal_uart_get_config(hal_uart_context_t * uart_ctxt, hal_uart_config_t *cfg) {
+hal_uart_result_t hal_uart_get_config(struct hal_uart_context * uart_ctxt, hal_uart_config_t *cfg) {
     return HAL_UART_ERR_OTHER; // esp-idf does not provide a function to get config
 }
 
-hal_uart_result_t hal_uart_write(hal_uart_context_t * uart_ctxt, const uint8_t *data, size_t len,hal_timeout_ms timeout) {
+hal_uart_result_t hal_uart_write(struct hal_uart_context * uart_ctxt, const uint8_t *data, size_t len,hal_timeout_ms timeout) {
     int bytes_written = uart_write_bytes(uart_ctxt->uart_id, (const char *)data, len);
     if (bytes_written == len) {
         return HAL_UART_OK;
@@ -85,7 +85,7 @@ hal_uart_result_t hal_uart_write(hal_uart_context_t * uart_ctxt, const uint8_t *
     return HAL_UART_ERR_OTHER;
 }
 
-hal_uart_result_t hal_uart_read(hal_uart_context_t * uart_ctxt, uint8_t *data, size_t len,hal_timeout_ms timeout) {
+hal_uart_result_t hal_uart_read(struct hal_uart_context * uart_ctxt, uint8_t *data, size_t len,hal_timeout_ms timeout) {
     int bytes_read = uart_read_bytes(uart_ctxt->uart_id, data, len, pdMS_TO_TICKS(timeout));
     if (bytes_read == len) {
         return HAL_UART_OK;
