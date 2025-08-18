@@ -6,7 +6,10 @@
 #include "hal_i2c_master.h"
 
 #include "esp_err.h"
+
+#include "driver/i2c_types.h"
 #include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 static void hal_config_to_esp_config(struct hal_i2c_config * config ,i2c_config_t * esp_config){
     esp_config->mode                = I2C_MODE_MASTER;
@@ -140,15 +143,24 @@ hal_i2c_result_t hal_i2c_master_write(struct hal_i2c_context *i2c_ctx, uint8_t d
 hal_i2c_result_t hal_i2c_master_read(struct hal_i2c_context *i2c_ctx, uint8_t dev_address, uint8_t *data, size_t len, hal_timeout_ms timeout){
     BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
     if(mutex_ret_err == pdTRUE){
-        hal_i2c_result_t i2c_result = esp_err_to_i2c_hal_err(
-            i2c_master_read_from_device(
-                i2c_ctx->i2c_bus_id,
-                dev_address,
-                data,
-                len,
-                pdMS_TO_TICKS(timeout)
-            )
-        );
+        hal_i2c_result_t i2c_result;
+
+        if (len == 0) {
+            // 0-byte reads are not supported
+            i2c_result = HAL_I2C_ERR_INVALID_ARG;
+        } else {
+            // Normal read operation
+            i2c_result = esp_err_to_i2c_hal_err(
+                i2c_master_read_from_device(
+                    i2c_ctx->i2c_bus_id,
+                    dev_address,
+                    data,
+                    len,
+                    pdMS_TO_TICKS(timeout)
+                )
+            );
+        }
+
         xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
         return i2c_result;
     }else{
