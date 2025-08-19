@@ -5,5 +5,5 @@ manifest:
   projects:
     - name: nexus-hal-interface
       remote: fozi
-      revision: main
+      revision: v0.1.0
       path: hal-interface
