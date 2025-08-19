@@ -17,7 +17,7 @@ static void nhal_config_to_esp_config(struct nhal_i2c_config * config ,i2c_confi
     esp_config->scl_io_num          = config->impl_config->scl_io_num;
     esp_config->sda_pullup_en       = config->impl_config->sda_pullup_en;
     esp_config->scl_pullup_en       = config->impl_config->scl_pullup_en;
-    esp_config->master.clk_speed    = config->impl_config->clk_speed;
+    esp_config->master.clk_speed    = config->clock_speed_hz;
 };
 
 nhal_result_t nhal_i2c_master_init(struct nhal_i2c_context * ctxt){

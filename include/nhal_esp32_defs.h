@@ -31,7 +31,6 @@ struct nhal_i2c_impl_config{
     uint8_t     scl_io_num      ;
     uint8_t     sda_pullup_en   ;
     uint8_t     scl_pullup_en   ;
-    uint32_t    clk_speed       ;
 } ;
 
 struct nhal_uart_impl_config{
