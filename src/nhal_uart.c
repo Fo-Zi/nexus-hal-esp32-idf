@@ -52,8 +52,19 @@ static void nhal_config_to_esp_config(struct nhal_uart_config *config, uart_conf
 };
 
 nhal_result_t nhal_uart_init(struct nhal_uart_context * uart_ctxt) {
+    if (uart_ctxt == NULL || uart_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (uart_ctxt->impl_ctx->is_initialized) {
+        return NHAL_OK;
+    }
+
     // Initialize context to sync-only mode
     uart_ctxt->current_mode = NHAL_UART_OP_MODE_SYNC_ONLY;
+    uart_ctxt->impl_ctx->is_initialized = true;
+    uart_ctxt->impl_ctx->is_configured = false;
+    
     return NHAL_OK;
 }
 
@@ -63,6 +74,14 @@ nhal_result_t nhal_uart_deinit(struct nhal_uart_context * uart_ctxt) {
 }
 
 nhal_result_t nhal_uart_set_config(struct nhal_uart_context * uart_ctxt, struct nhal_uart_config *cfg) {
+    if (uart_ctxt == NULL || cfg == NULL || uart_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!uart_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
     uart_config_t esp_uart_config;
     nhal_config_to_esp_config(cfg, &esp_uart_config);
 
@@ -72,7 +91,12 @@ nhal_result_t nhal_uart_set_config(struct nhal_uart_context * uart_ctxt, struct 
     }
 
     err = uart_driver_install(uart_ctxt->uart_bus_id, 0, 0, 0, NULL, 0);
-    return nhal_map_esp_err(err);
+    if (err != ESP_OK) {
+        return nhal_map_esp_err(err);
+    }
+
+    uart_ctxt->impl_ctx->is_configured = true;
+    return NHAL_OK;
 }
 
 nhal_result_t nhal_uart_get_config(struct nhal_uart_context * uart_ctxt, struct nhal_uart_config *cfg) {
@@ -80,6 +104,18 @@ nhal_result_t nhal_uart_get_config(struct nhal_uart_context * uart_ctxt, struct 
 }
 
 nhal_result_t nhal_uart_write(struct nhal_uart_context * uart_ctxt, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+    if (uart_ctxt == NULL || data == NULL || len == 0 || uart_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!uart_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!uart_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     int bytes_written = uart_write_bytes(uart_ctxt->uart_bus_id, (const char *)data, len);
     if (bytes_written == len) {
         return NHAL_OK;
@@ -88,6 +124,18 @@ nhal_result_t nhal_uart_write(struct nhal_uart_context * uart_ctxt, const uint8_
 }
 
 nhal_result_t nhal_uart_read(struct nhal_uart_context * uart_ctxt, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+    if (uart_ctxt == NULL || data == NULL || len == 0 || uart_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!uart_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!uart_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     int bytes_read = uart_read_bytes(uart_ctxt->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
     if (bytes_read == len) {
         return NHAL_OK;

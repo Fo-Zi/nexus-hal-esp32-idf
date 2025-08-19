@@ -39,6 +39,7 @@ nhal_result_t nhal_i2c_master_init(struct nhal_i2c_context * ctxt){
     }
 
     ctxt->impl_ctx->is_initialized = true;
+    ctxt->impl_ctx->is_configured = false;
     ctxt->impl_ctx->is_driver_installed = false;
 
 #if defined(NHAL_I2C_ASYNC_DMA_SUPPORT)
@@ -78,7 +79,7 @@ nhal_result_t nhal_i2c_master_deinit(struct nhal_i2c_context *i2c_ctx){
 
         return NHAL_OK;
     }else{
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 };
 
@@ -105,13 +106,14 @@ nhal_result_t nhal_i2c_master_set_config(struct nhal_i2c_context *i2c_ctx, struc
         };
 
         i2c_ctx->impl_ctx->is_driver_installed = true;
+        i2c_ctx->impl_ctx->is_configured = true;
 
         free_mutex_and_ret:
             xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
             return i2c_result;
 
     }else{
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 
 };
@@ -121,6 +123,18 @@ nhal_result_t nhal_i2c_master_get_config(struct nhal_i2c_context *i2c_ctx, struc
 };
 
 nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *i2c_ctx, uint8_t dev_address, const uint8_t *data, size_t len, nhal_timeout_ms timeout){
+
+    if (i2c_ctx == NULL || i2c_ctx->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
 
     BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
     if(mutex_ret_err == pdTRUE){
@@ -136,11 +150,24 @@ nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *i2c_ctx, uint8_t de
         xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
         return i2c_result;
     }else{
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 };
 
 nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *i2c_ctx, uint8_t dev_address, uint8_t *data, size_t len, nhal_timeout_ms timeout){
+    
+    if (i2c_ctx == NULL || i2c_ctx->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+    
     BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
     if(mutex_ret_err == pdTRUE){
         nhal_result_t i2c_result;
@@ -164,7 +191,7 @@ nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *i2c_ctx, uint8_t dev
         xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
         return i2c_result;
     }else{
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 };
 
@@ -175,6 +202,18 @@ nhal_result_t nhal_i2c_master_write_read_reg(
     uint8_t *data, size_t data_len,
     nhal_timeout_ms timeout
 ){
+    if (i2c_ctx == NULL || i2c_ctx->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+    
+    if (!i2c_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+    
     BaseType_t mutex_ret_err = xSemaphoreTake(i2c_ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
     if(mutex_ret_err == pdTRUE){
         nhal_result_t i2c_result = nhal_map_esp_err(
@@ -191,6 +230,6 @@ nhal_result_t nhal_i2c_master_write_read_reg(
         xSemaphoreGive(i2c_ctx->impl_ctx->mutex);
         return i2c_result;
     }else{
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 };

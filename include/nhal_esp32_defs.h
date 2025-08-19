@@ -1,5 +1,5 @@
 /**
- * @file hal_impl_esp32_defs.h
+ * @file nhal_impl_esp32_defs.h
  * @brief This is a private header file that defines the ESP32-specific
  * structures and functions for the HAL implementation. It should not be
  * included directly by higher-level application code.
@@ -17,7 +17,7 @@
 #include "nhal_uart_types.h"
 #include "nhal_pin_types.h"
 #include "nhal_spi_types.h"
-#include "nhal_common.h"
+#include "nhal_wdt_types.h"
 
 //==============================================================================
 // PLATFORM-SPECIFIC CONFIGURATION STRUCTURES
@@ -78,6 +78,12 @@ struct nhal_spi_async_dma_impl_config{
     uint8_t queue_size      ;
 } ;
 
+struct nhal_wdt_impl_config{
+    bool panic_handler;      /**< Enable panic handler on timeout */
+    bool trigger_abort;      /**< Trigger abort() on timeout */
+    uint8_t idle_core_mask;  /**< Core mask for idle task monitoring */
+} ;
+
 //==============================================================================
 // INTERNAL IMPLEMENTATION CONTEXT STRUCTURES
 //==============================================================================
@@ -86,11 +92,13 @@ struct nhal_spi_async_dma_impl_config{
 
 struct nhal_pin_impl_ctx{
     bool is_initialized;
+    bool is_configured;
 } ;
 
 struct nhal_i2c_impl_ctx{
     SemaphoreHandle_t mutex;
     bool is_initialized;
+    bool is_configured;
     bool is_driver_installed;
     
 #if defined(NHAL_I2C_ASYNC_DMA_SUPPORT)
@@ -101,6 +109,7 @@ struct nhal_i2c_impl_ctx{
 struct nhal_uart_impl_ctx{
     SemaphoreHandle_t mutex;
     bool is_initialized;
+    bool is_configured;
     bool is_driver_installed;
     
 #if defined(NHAL_UART_ASYNC_BUFFERED_SUPPORT)
@@ -111,6 +120,7 @@ struct nhal_uart_impl_ctx{
 struct nhal_spi_impl_ctx{
     SemaphoreHandle_t mutex;
     bool is_initialized;
+    bool is_configured;
     bool is_driver_installed;
     spi_device_handle_t device_handle;
     
@@ -118,6 +128,11 @@ struct nhal_spi_impl_ctx{
     spi_device_handle_t async_device_handle;
 #endif
 };
+
+struct nhal_wdt_impl_ctx{
+    bool is_initialized;
+    bool is_configured;
+} ;
 
 nhal_result_t nhal_map_esp_err(esp_err_t esp_err);
 
