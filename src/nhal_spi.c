@@ -78,6 +78,7 @@ nhal_result_t nhal_spi_master_init(struct nhal_spi_context *spi_ctx) {
     }
 
     spi_ctx->impl_ctx->is_initialized = true;
+    spi_ctx->impl_ctx->is_configured = false;
     spi_ctx->impl_ctx->is_driver_installed = false;
     spi_ctx->impl_ctx->device_handle = NULL;
 
@@ -129,7 +130,7 @@ nhal_result_t nhal_spi_master_deinit(struct nhal_spi_context *spi_ctx) {
 
         return NHAL_OK;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 
@@ -167,12 +168,13 @@ nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *spi_ctx, struc
 
         // Store actual frequency (ESP-IDF may adjust it)
         spi_ctx->actual_frequency_hz = config->frequency_hz; // ESP-IDF will adjust to closest supported
+        spi_ctx->impl_ctx->is_configured = true;
 
         free_mutex_and_ret:
             xSemaphoreGive(spi_ctx->impl_ctx->mutex);
             return spi_result;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 
@@ -183,6 +185,14 @@ nhal_result_t nhal_spi_master_get_config(struct nhal_spi_context *spi_ctx, struc
 nhal_result_t nhal_spi_master_write(struct nhal_spi_context *spi_ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
     if (spi_ctx == NULL || data == NULL || len == 0 || spi_ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!spi_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!spi_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
     }
 
     BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
@@ -211,13 +221,21 @@ nhal_result_t nhal_spi_master_write(struct nhal_spi_context *spi_ctx, const uint
         xSemaphoreGive(spi_ctx->impl_ctx->mutex);
         return spi_result;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 
 nhal_result_t nhal_spi_master_read(struct nhal_spi_context *spi_ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
     if (spi_ctx == NULL || data == NULL || len == 0 || spi_ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!spi_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!spi_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
     }
 
     BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
@@ -245,7 +263,7 @@ nhal_result_t nhal_spi_master_read(struct nhal_spi_context *spi_ctx, uint8_t *da
         xSemaphoreGive(spi_ctx->impl_ctx->mutex);
         return spi_result;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 
@@ -256,6 +274,14 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const
 
     if ((tx_data == NULL && tx_len > 0) || (rx_data == NULL && rx_len > 0)) {
         return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!spi_ctx->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!spi_ctx->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
     }
 
     BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
@@ -286,6 +312,6 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const
         xSemaphoreGive(spi_ctx->impl_ctx->mutex);
         return spi_result;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }

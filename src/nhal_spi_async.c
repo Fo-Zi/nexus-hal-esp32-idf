@@ -34,7 +34,7 @@ static void spi_async_transaction_cb(spi_transaction_t *trans) {
     }
 }
 
-static void hal_async_config_to_esp_config(struct nhal_spi_config *config, const struct nhal_spi_async_dma_config *async_cfg, spi_device_interface_config_t *esp_config) {
+static void nhal_async_config_to_esp_config(struct nhal_spi_config *config, const struct nhal_spi_async_dma_config *async_cfg, spi_device_interface_config_t *esp_config) {
     esp_config->command_bits = 0;
     esp_config->address_bits = 0;
     esp_config->dummy_bits = 0;
@@ -75,7 +75,7 @@ static void hal_async_config_to_esp_config(struct nhal_spi_config *config, const
     esp_config->spics_io_num = config->impl_config->cs_pin;
 }
 
-static void hal_async_bus_config_to_esp_config(const struct nhal_spi_async_dma_config *async_cfg, spi_bus_config_t *esp_bus_config) {
+static void nhal_async_bus_config_to_esp_config(const struct nhal_spi_async_dma_config *async_cfg, spi_bus_config_t *esp_bus_config) {
     // Copy basic pin configuration from the basic config
     esp_bus_config->mosi_io_num = async_cfg->basic_config.mosi_pin;
     esp_bus_config->miso_io_num = async_cfg->basic_config.miso_pin;
@@ -106,7 +106,7 @@ nhal_result_t nhal_spi_enable_async_mode(
         spi_device_interface_config_t esp_device_config = {0};
         
         // Configure for async DMA operations
-        hal_async_bus_config_to_esp_config(async_cfg, &esp_bus_config);
+        nhal_async_bus_config_to_esp_config(async_cfg, &esp_bus_config);
         
         // SPI bus must already be initialized and configured
         if (!spi_ctx->impl_ctx->is_driver_installed) {
@@ -129,7 +129,7 @@ nhal_result_t nhal_spi_enable_async_mode(
             xSemaphoreGive(spi_ctx->impl_ctx->mutex);
             return spi_result;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 
@@ -159,7 +159,7 @@ nhal_result_t nhal_spi_disable_async_mode(
         xSemaphoreGive(spi_ctx->impl_ctx->mutex);
         return NHAL_OK;
     } else {
-        return NHAL_ERR_RESOURCE_BUSY;
+        return NHAL_ERR_BUSY;
     }
 }
 

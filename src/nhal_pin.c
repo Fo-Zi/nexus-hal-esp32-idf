@@ -33,6 +33,7 @@ nhal_result_t nhal_pin_init(struct nhal_pin_context * pin_ctxt){
     
     isr_service_ref_count++;
     pin_ctxt->impl_ctx->is_initialized = true;
+    pin_ctxt->impl_ctx->is_configured = false;
     return NHAL_OK;
 };
 
@@ -62,15 +63,23 @@ nhal_result_t nhal_pin_deinit(struct nhal_pin_context * pin_ctxt){
 };
 
 nhal_result_t nhal_pin_set_config(struct nhal_pin_context * pin_ctxt, struct nhal_pin_config * config ){
+    if (pin_ctxt == NULL || config == NULL || pin_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
 
     gpio_config_t esp_pin_config;
     nhal_config_to_esp_config(config,&esp_pin_config);
 
     nhal_result_t result = nhal_map_esp_err(gpio_config(&esp_pin_config));
     if(result != NHAL_OK){
-
+        return result;
     }
 
+    pin_ctxt->impl_ctx->is_configured = true;
     return result;
 
 };
@@ -80,27 +89,75 @@ nhal_result_t nhal_pin_get_config(struct nhal_pin_context * pin_ctxt, struct nha
 };
 
 nhal_result_t nhal_pin_get_state(struct nhal_pin_context * pin_ctxt, nhal_pin_state_t *value){
+    if (pin_ctxt == NULL || value == NULL || pin_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     *value = gpio_get_level(pin_ctxt->pin_id->num);
     return NHAL_OK;
 };
 
 nhal_result_t nhal_pin_set_state(struct nhal_pin_context * pin_ctxt, nhal_pin_state_t value){
+    if (pin_ctxt == NULL || pin_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     nhal_result_t result = nhal_map_esp_err(gpio_set_level(pin_ctxt->pin_id->num, value));
     if(result != NHAL_OK){
-
+        return result;
     }
     return result;
 };
 
 nhal_result_t nhal_pin_set_callback( struct nhal_pin_context * pin_ctxt, nhal_pin_callback_t callback ){
+    if (pin_ctxt == NULL || callback == NULL || pin_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     nhal_result_t result = nhal_map_esp_err(gpio_isr_handler_add(pin_ctxt->pin_id->num, callback, NULL));
     if(result != NHAL_OK){
-
+        return result;
     }
     return result;
 };
 
 nhal_result_t nhal_pin_set_direction(struct nhal_pin_context * pin_ctxt, nhal_pin_dir_t direction, nhal_pin_pull_mode_t pull_mode){
+    if (pin_ctxt == NULL || pin_ctxt->impl_ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!pin_ctxt->impl_ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
     gpio_config_t esp_pin_config = {0};
     
     esp_pin_config.pin_bit_mask = (1ULL << pin_ctxt->pin_id->num);
