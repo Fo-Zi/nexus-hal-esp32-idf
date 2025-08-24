@@ -1,4 +1,5 @@
 #include "nhal_esp32_defs.h"
+#include "nhal_esp32_helpers.h"
 
 #include <nhal_uart_basic.h>
 #include <nhal_uart_types.h>
@@ -64,7 +65,7 @@ nhal_result_t nhal_uart_init(struct nhal_uart_context * uart_ctxt) {
     uart_ctxt->current_mode = NHAL_UART_OP_MODE_SYNC_ONLY;
     uart_ctxt->impl_ctx->is_initialized = true;
     uart_ctxt->impl_ctx->is_configured = false;
-    
+
     return NHAL_OK;
 }
 
@@ -90,8 +91,25 @@ nhal_result_t nhal_uart_set_config(struct nhal_uart_context * uart_ctxt, struct 
         return nhal_map_esp_err(err);
     }
 
-    err = uart_driver_install(uart_ctxt->uart_bus_id, 0, 0, 0, NULL, 0);
+    struct nhal_uart_impl_config *impl_cfg = (struct nhal_uart_impl_config *)cfg->impl_config;
+    
+    err = uart_driver_install(uart_ctxt->uart_bus_id, 
+                             impl_cfg->rx_buffer_size, 
+                             impl_cfg->tx_buffer_size, 
+                             impl_cfg->queue_size, 
+                             NULL, 
+                             impl_cfg->intr_alloc_flags);
     if (err != ESP_OK) {
+        return nhal_map_esp_err(err);
+    }
+
+    err = uart_set_pin(uart_ctxt->uart_bus_id, 
+                       impl_cfg->tx_pin_number, 
+                       impl_cfg->rx_pin_number, 
+                       UART_PIN_NO_CHANGE, 
+                       UART_PIN_NO_CHANGE);
+    if (err != ESP_OK) {
+        uart_driver_delete(uart_ctxt->uart_bus_id);
         return nhal_map_esp_err(err);
     }
 

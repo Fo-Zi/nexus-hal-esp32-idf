@@ -1,5 +1,6 @@
 #include "nhal_esp32_defs.h"
 #include "nhal_i2c_transfer.h"
+#include "nhal_esp32_helpers.h"
 
 #include "driver/i2c.h"
 #include "nhal_i2c_types.h"
@@ -14,7 +15,7 @@ nhal_result_t nhal_i2c_master_perform_transfer(
         return NHAL_ERR_INVALID_ARG;
     }
 
-    
+
     BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout_ms) );
     if(mutex_ret_err == pdTRUE){
 
@@ -69,7 +70,7 @@ nhal_result_t nhal_i2c_master_perform_transfer(
         i2c_cmd_link_delete(cmd);
         xSemaphoreGive(ctx->impl_ctx->mutex);
         return nhal_map_esp_err(ret);
-    
+
     }else{
         return NHAL_ERR_TIMEOUT;
     }

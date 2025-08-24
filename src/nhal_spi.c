@@ -1,5 +1,6 @@
 #include "esp_log.h"
 #include "nhal_esp32_defs.h"
+#include "nhal_esp32_helpers.h"
 
 #include "nhal_common.h"
 #include "nhal_spi_types.h"
@@ -151,7 +152,7 @@ nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *spi_ctx, struc
     if (mutex_ret_err == pdTRUE) {
         // Initialize SPI bus if not already done
         if (!spi_ctx->impl_ctx->is_driver_installed) {
-            ret_err = spi_bus_initialize(config->spi_bus_id, &esp_bus_config, SPI_DMA_DISABLED);
+            ret_err = spi_bus_initialize(spi_ctx->spi_bus_id, &esp_bus_config, SPI_DMA_DISABLED);
             if (ret_err != ESP_OK) {
                 spi_result = nhal_map_esp_err(ret_err);
                 goto free_mutex_and_ret;
@@ -160,7 +161,7 @@ nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *spi_ctx, struc
         }
 
         // Add device to SPI bus
-        ret_err = spi_bus_add_device(config->spi_bus_id, &esp_device_config, &spi_ctx->impl_ctx->device_handle);
+        ret_err = spi_bus_add_device(spi_ctx->spi_bus_id, &esp_device_config, &spi_ctx->impl_ctx->device_handle);
         if (ret_err != ESP_OK) {
             spi_result = nhal_map_esp_err(ret_err);
             goto free_mutex_and_ret;

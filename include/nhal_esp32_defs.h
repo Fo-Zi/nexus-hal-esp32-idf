@@ -54,13 +54,11 @@ struct nhal_uart_async_buffered_impl_config{
     uint8_t queue_size;
 } ;
 struct nhal_pin_id{
-    uint8_t num;
+    uint8_t pin_num;
 };
 
 struct nhal_pin_impl_config{
     uint8_t intr_type       ;
-    uint8_t pull_up_en      ;
-    uint8_t pull_down_en    ;
 } ;
 
 struct nhal_spi_impl_config{
@@ -99,7 +97,7 @@ struct nhal_i2c_impl_ctx{
     bool is_initialized;
     bool is_configured;
     bool is_driver_installed;
-    
+
 #if defined(NHAL_I2C_ASYNC_DMA_SUPPORT)
     i2c_cmd_handle_t async_cmd_handle;
 #endif
@@ -110,7 +108,7 @@ struct nhal_uart_impl_ctx{
     bool is_initialized;
     bool is_configured;
     bool is_driver_installed;
-    
+
 #if defined(NHAL_UART_ASYNC_BUFFERED_SUPPORT)
     QueueHandle_t uart_queue;
 #endif
@@ -122,7 +120,7 @@ struct nhal_spi_impl_ctx{
     bool is_configured;
     bool is_driver_installed;
     spi_device_handle_t device_handle;
-    
+
 #if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
     spi_device_handle_t async_device_handle;
 #endif
@@ -133,6 +131,5 @@ struct nhal_wdt_impl_ctx{
     bool is_configured;
 } ;
 
-nhal_result_t nhal_map_esp_err(esp_err_t esp_err);
 
 #endif // NHAL_IMPL_ESP32_DEFS_H
