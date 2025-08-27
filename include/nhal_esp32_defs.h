@@ -13,6 +13,7 @@
 
 #include "freertos/idf_additions.h"
 #include "driver/spi_master.h"
+#include "driver/i2c.h"
 #include "nhal_i2c_types.h"
 #include "nhal_uart_types.h"
 #include "nhal_pin_types.h"
@@ -47,12 +48,25 @@ struct nhal_uart_impl_config{
     uint8_t queue_msg_size  ;
 } ;
 
-struct nhal_uart_async_buffered_impl_config{
-    struct nhal_uart_impl_config basic_config;
+struct nhal_async_impl_config{
+    uint8_t placeholder;
+};
+
+struct nhal_i2c_async_impl_config{
+    uint8_t dma_channel;
+    uint16_t max_transfer_size;
+};
+
+struct nhal_spi_async_impl_config{
+    uint8_t dma_channel;
+    uint16_t max_transfer_size;
+};
+
+struct nhal_uart_async_impl_config{
     uint16_t tx_buffer_size;
     uint16_t rx_buffer_size;
-    uint8_t queue_size;
-} ;
+    bool use_interrupts;
+};
 struct nhal_pin_id{
     uint8_t pin_num;
 };
@@ -68,12 +82,6 @@ struct nhal_spi_impl_config{
     uint8_t cs_pin          ;
 } ;
 
-struct nhal_spi_async_dma_impl_config{
-    struct nhal_spi_impl_config basic_config;
-    uint16_t max_transfer_sz ;
-    uint8_t dma_chan        ;
-    uint8_t queue_size      ;
-} ;
 
 struct nhal_wdt_impl_config{
     bool panic_handler;      /**< Enable panic handler on timeout */
@@ -98,7 +106,7 @@ struct nhal_i2c_impl_ctx{
     bool is_configured;
     bool is_driver_installed;
 
-#if defined(NHAL_I2C_ASYNC_DMA_SUPPORT)
+#if defined(NHAL_I2C_ASYNC_SUPPORT)
     i2c_cmd_handle_t async_cmd_handle;
 #endif
 } ;
@@ -109,7 +117,7 @@ struct nhal_uart_impl_ctx{
     bool is_configured;
     bool is_driver_installed;
 
-#if defined(NHAL_UART_ASYNC_BUFFERED_SUPPORT)
+#if defined(NHAL_UART_ASYNC_SUPPORT)
     QueueHandle_t uart_queue;
 #endif
 };
@@ -121,7 +129,7 @@ struct nhal_spi_impl_ctx{
     bool is_driver_installed;
     spi_device_handle_t device_handle;
 
-#if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
+#if defined(NHAL_SPI_ASYNC_SUPPORT)
     spi_device_handle_t async_device_handle;
 #endif
 };

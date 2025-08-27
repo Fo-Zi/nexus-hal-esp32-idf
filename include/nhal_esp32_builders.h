@@ -18,7 +18,6 @@
     }; \
     static struct nhal_i2c_context name##_i2c_ctx = { \
         .i2c_bus_id = (bus_id), \
-        .current_mode = NHAL_I2C_OP_MODE_SYNC_ONLY, \
         .impl_ctx = &name##_i2c_impl_ctx \
     };
 
@@ -70,11 +69,44 @@
     }; \
     static struct nhal_uart_context name##_uart_ctx = { \
         .uart_bus_id = (uart_num), \
-        .current_mode = NHAL_UART_OP_MODE_SYNC_ONLY, \
         .impl_ctx = &name##_uart_impl_ctx \
     };
 
 #define NHAL_ESP32_UART_CONFIG_REF(name) (&name##_uart_cfg)
 #define NHAL_ESP32_UART_CONTEXT_REF(name) (&name##_uart_ctx)
+
+#define NHAL_ESP32_I2C_ASYNC_BUILD(name, dma_chan, max_transfer_size) \
+    static struct nhal_i2c_async_impl_config name##_i2c_async_impl_cfg = { \
+        .dma_channel = (dma_chan), \
+        .max_transfer_size = (max_transfer_size) \
+    }; \
+    static struct nhal_async_config name##_i2c_async_cfg = { \
+        .impl_config = &name##_i2c_async_impl_cfg \
+    };
+
+#define NHAL_ESP32_I2C_ASYNC_CONFIG_REF(name) (&name##_i2c_async_cfg)
+
+#define NHAL_ESP32_SPI_ASYNC_BUILD(name, dma_chan, max_transfer_size) \
+    static struct nhal_spi_async_impl_config name##_spi_async_impl_cfg = { \
+        .dma_channel = (dma_chan), \
+        .max_transfer_size = (max_transfer_size) \
+    }; \
+    static struct nhal_async_config name##_spi_async_cfg = { \
+        .impl_config = &name##_spi_async_impl_cfg \
+    };
+
+#define NHAL_ESP32_SPI_ASYNC_CONFIG_REF(name) (&name##_spi_async_cfg)
+
+#define NHAL_ESP32_UART_ASYNC_BUILD(name, tx_buffer_size, rx_buffer_size, use_interrupts) \
+    static struct nhal_uart_async_impl_config name##_uart_async_impl_cfg = { \
+        .tx_buffer_size = (tx_buffer_size), \
+        .rx_buffer_size = (rx_buffer_size), \
+        .use_interrupts = (use_interrupts) \
+    }; \
+    static struct nhal_async_config name##_uart_async_cfg = { \
+        .impl_config = &name##_uart_async_impl_cfg \
+    };
+
+#define NHAL_ESP32_UART_ASYNC_CONFIG_REF(name) (&name##_uart_async_cfg)
 
 #endif
