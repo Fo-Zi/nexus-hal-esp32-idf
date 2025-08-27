@@ -60,71 +60,68 @@ static void nhal_bus_config_to_esp_config(struct nhal_spi_config *config, spi_bu
     esp_bus_config->flags = SPICOMMON_BUSFLAG_MASTER;
 }
 
-nhal_result_t nhal_spi_master_init(struct nhal_spi_context *spi_ctx) {
-    if (spi_ctx == NULL || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_init(struct nhal_spi_context *ctx) {
+    if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (spi_ctx->impl_ctx->is_initialized) {
+    if (ctx->impl_ctx->is_initialized) {
         return NHAL_OK;
     }
 
-    // Initialize context to sync-only mode
-    spi_ctx->current_mode = NHAL_SPI_OP_MODE_SYNC_ONLY;
-
     // Create mutex for thread safety
-    spi_ctx->impl_ctx->mutex = xSemaphoreCreateMutex();
-    if (spi_ctx->impl_ctx->mutex == NULL) {
+    ctx->impl_ctx->mutex = xSemaphoreCreateMutex();
+    if (ctx->impl_ctx->mutex == NULL) {
         return NHAL_ERR_OTHER;
     }
 
-    spi_ctx->impl_ctx->is_initialized = true;
-    spi_ctx->impl_ctx->is_configured = false;
-    spi_ctx->impl_ctx->is_driver_installed = false;
-    spi_ctx->impl_ctx->device_handle = NULL;
+    ctx->impl_ctx->is_initialized = true;
+    ctx->impl_ctx->is_configured = false;
+    ctx->impl_ctx->is_driver_installed = false;
+    ctx->impl_ctx->device_handle = NULL;
 
 #if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
-    spi_ctx->impl_ctx->async_device_handle = NULL;
+    ctx->impl_ctx->async_device_handle = NULL;
 #endif
 
     return NHAL_OK;
 }
 
-nhal_result_t nhal_spi_master_deinit(struct nhal_spi_context *spi_ctx) {
-    if (spi_ctx == NULL || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_deinit(struct nhal_spi_context *ctx) {
+    if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!spi_ctx->impl_ctx->is_initialized) {
+    if (!ctx->impl_ctx->is_initialized) {
         return NHAL_OK;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
     if (mutex_ret_err == pdTRUE) {
         // Remove device if attached
-        if (spi_ctx->impl_ctx->device_handle != NULL) {
-            esp_err_t ret_err = spi_bus_remove_device(spi_ctx->impl_ctx->device_handle);
+        if (ctx->impl_ctx->device_handle != NULL) {
+            esp_err_t ret_err = spi_bus_remove_device(ctx->impl_ctx->device_handle);
             if (ret_err != ESP_OK) {
-                xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+                xSemaphoreGive(ctx->impl_ctx->mutex);
                 return nhal_map_esp_err(ret_err);
             }
-            spi_ctx->impl_ctx->device_handle = NULL;
+            ctx->impl_ctx->device_handle = NULL;
         }
 
         // Free SPI bus if installed
-        if (spi_ctx->impl_ctx->is_driver_installed) {
-            esp_err_t ret_err = spi_bus_free(spi_ctx->spi_bus_id);
+        if (ctx->impl_ctx->is_driver_installed) {
+            esp_err_t ret_err = spi_bus_free(ctx->spi_bus_id);
             if (ret_err != ESP_OK) {
-                xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+                xSemaphoreGive(ctx->impl_ctx->mutex);
                 return nhal_map_esp_err(ret_err);
             }
-            spi_ctx->impl_ctx->is_driver_installed = false;
+            ctx->impl_ctx->is_driver_installed = false;
         }
 
         // Clean up mutex and reset state
-        SemaphoreHandle_t mutex_to_delete = spi_ctx->impl_ctx->mutex;
-        spi_ctx->impl_ctx->is_initialized = false;
-        spi_ctx->impl_ctx->mutex = NULL;
+        SemaphoreHandle_t mutex_to_delete = ctx->impl_ctx->mutex;
+        ctx->impl_ctx->is_initialized = false;
+        ctx->impl_ctx->mutex = NULL;
 
         xSemaphoreGive(mutex_to_delete);
         vSemaphoreDelete(mutex_to_delete);
@@ -135,8 +132,8 @@ nhal_result_t nhal_spi_master_deinit(struct nhal_spi_context *spi_ctx) {
     }
 }
 
-nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *spi_ctx, struct nhal_spi_config *config) {
-    if (spi_ctx == NULL || config == NULL || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *ctx, struct nhal_spi_config *config) {
+    if (ctx == NULL || config == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
@@ -148,55 +145,55 @@ nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *spi_ctx, struc
     nhal_bus_config_to_esp_config(config, &esp_bus_config);
     nhal_config_to_esp_config(config, &esp_device_config);
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
     if (mutex_ret_err == pdTRUE) {
         // Initialize SPI bus if not already done
-        if (!spi_ctx->impl_ctx->is_driver_installed) {
-            ret_err = spi_bus_initialize(spi_ctx->spi_bus_id, &esp_bus_config, SPI_DMA_DISABLED);
+        if (!ctx->impl_ctx->is_driver_installed) {
+            ret_err = spi_bus_initialize(ctx->spi_bus_id, &esp_bus_config, SPI_DMA_DISABLED);
             if (ret_err != ESP_OK) {
                 spi_result = nhal_map_esp_err(ret_err);
                 goto free_mutex_and_ret;
             }
-            spi_ctx->impl_ctx->is_driver_installed = true;
+            ctx->impl_ctx->is_driver_installed = true;
         }
 
         // Add device to SPI bus
-        ret_err = spi_bus_add_device(spi_ctx->spi_bus_id, &esp_device_config, &spi_ctx->impl_ctx->device_handle);
+        ret_err = spi_bus_add_device(ctx->spi_bus_id, &esp_device_config, &ctx->impl_ctx->device_handle);
         if (ret_err != ESP_OK) {
             spi_result = nhal_map_esp_err(ret_err);
             goto free_mutex_and_ret;
         }
 
         // Store actual frequency (ESP-IDF may adjust it)
-        spi_ctx->actual_frequency_hz = config->frequency_hz; // ESP-IDF will adjust to closest supported
-        spi_ctx->impl_ctx->is_configured = true;
+        ctx->actual_frequency_hz = config->frequency_hz; // ESP-IDF will adjust to closest supported
+        ctx->impl_ctx->is_configured = true;
 
         free_mutex_and_ret:
-            xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+            xSemaphoreGive(ctx->impl_ctx->mutex);
             return spi_result;
     } else {
         return NHAL_ERR_BUSY;
     }
 }
 
-nhal_result_t nhal_spi_master_get_config(struct nhal_spi_context *spi_ctx, struct nhal_spi_config *config) {
+nhal_result_t nhal_spi_master_get_config(struct nhal_spi_context *ctx, struct nhal_spi_config *config) {
     return NHAL_ERR_OTHER; // ESP-IDF doesn't provide a way to get configuration
 }
 
-nhal_result_t nhal_spi_master_write(struct nhal_spi_context *spi_ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
-    if (spi_ctx == NULL || data == NULL || len == 0 || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_write(struct nhal_spi_context *ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+    if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!spi_ctx->impl_ctx->is_initialized) {
+    if (!ctx->impl_ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
-    if (!spi_ctx->impl_ctx->is_configured) {
+    if (!ctx->impl_ctx->is_configured) {
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
         trans.length = len * 8; // Length in bits
@@ -205,13 +202,12 @@ nhal_result_t nhal_spi_master_write(struct nhal_spi_context *spi_ctx, const uint
 
         // Transparent optimization: For sync-and-async mode with DMA support,
         // automatically use DMA for larger transfers, CPU for smaller ones
-        spi_device_handle_t handle_to_use = spi_ctx->impl_ctx->device_handle;
+        spi_device_handle_t handle_to_use = ctx->impl_ctx->device_handle;
 
-#if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
-        if (spi_ctx->current_mode == NHAL_SPI_OP_MODE_SYNC_AND_ASYNC &&
-            spi_ctx->impl_ctx->async_device_handle != NULL &&
+#if defined(NHAL_SPI_ASYNC_SUPPORT)
+        if (ctx->impl_ctx->async_device_handle != NULL &&
             len >= 64) { // Use DMA for transfers >= 64 bytes
-            handle_to_use = spi_ctx->impl_ctx->async_device_handle;
+            handle_to_use = ctx->impl_ctx->async_device_handle;
         }
 #endif
 
@@ -219,27 +215,27 @@ nhal_result_t nhal_spi_master_write(struct nhal_spi_context *spi_ctx, const uint
             spi_device_transmit(handle_to_use, &trans)
         );
 
-        xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+        xSemaphoreGive(ctx->impl_ctx->mutex);
         return spi_result;
     } else {
         return NHAL_ERR_BUSY;
     }
 }
 
-nhal_result_t nhal_spi_master_read(struct nhal_spi_context *spi_ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
-    if (spi_ctx == NULL || data == NULL || len == 0 || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_read(struct nhal_spi_context *ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+    if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!spi_ctx->impl_ctx->is_initialized) {
+    if (!ctx->impl_ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
-    if (!spi_ctx->impl_ctx->is_configured) {
+    if (!ctx->impl_ctx->is_configured) {
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
         trans.length = len * 8; // Length in bits
@@ -247,13 +243,12 @@ nhal_result_t nhal_spi_master_read(struct nhal_spi_context *spi_ctx, uint8_t *da
         trans.rx_buffer = data;
 
         // Transparent optimization: Choose DMA vs CPU based on transfer size
-        spi_device_handle_t handle_to_use = spi_ctx->impl_ctx->device_handle;
+        spi_device_handle_t handle_to_use = ctx->impl_ctx->device_handle;
 
-#if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
-        if (spi_ctx->current_mode == NHAL_SPI_OP_MODE_SYNC_AND_ASYNC &&
-            spi_ctx->impl_ctx->async_device_handle != NULL &&
+#if defined(NHAL_SPI_ASYNC_SUPPORT)
+        if (ctx->impl_ctx->async_device_handle != NULL &&
             len >= 64) { // Use DMA for transfers >= 64 bytes
-            handle_to_use = spi_ctx->impl_ctx->async_device_handle;
+            handle_to_use = ctx->impl_ctx->async_device_handle;
         }
 #endif
 
@@ -261,15 +256,15 @@ nhal_result_t nhal_spi_master_read(struct nhal_spi_context *spi_ctx, uint8_t *da
             spi_device_transmit(handle_to_use, &trans)
         );
 
-        xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+        xSemaphoreGive(ctx->impl_ctx->mutex);
         return spi_result;
     } else {
         return NHAL_ERR_BUSY;
     }
 }
 
-nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const uint8_t *tx_data, size_t tx_len, uint8_t *rx_data, size_t rx_len, nhal_timeout_ms timeout) {
-    if (spi_ctx == NULL || spi_ctx->impl_ctx == NULL) {
+nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *ctx, const uint8_t *tx_data, size_t tx_len, uint8_t *rx_data, size_t rx_len, nhal_timeout_ms timeout) {
+    if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
@@ -277,15 +272,15 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!spi_ctx->impl_ctx->is_initialized) {
+    if (!ctx->impl_ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
-    if (!spi_ctx->impl_ctx->is_configured) {
+    if (!ctx->impl_ctx->is_configured) {
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(spi_ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
 
@@ -296,13 +291,12 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const
         trans.rx_buffer = rx_data;
 
         // Transparent optimization: Choose DMA vs CPU based on transfer size
-        spi_device_handle_t handle_to_use = spi_ctx->impl_ctx->device_handle;
+        spi_device_handle_t handle_to_use = ctx->impl_ctx->device_handle;
 
-#if defined(NHAL_SPI_ASYNC_DMA_SUPPORT)
-        if (spi_ctx->current_mode == NHAL_SPI_OP_MODE_SYNC_AND_ASYNC &&
-            spi_ctx->impl_ctx->async_device_handle != NULL &&
+#if defined(NHAL_SPI_ASYNC_SUPPORT)
+        if (ctx->impl_ctx->async_device_handle != NULL &&
             transfer_len >= 64) { // Use DMA for transfers >= 64 bytes
-            handle_to_use = spi_ctx->impl_ctx->async_device_handle;
+            handle_to_use = ctx->impl_ctx->async_device_handle;
         }
 #endif
 
@@ -310,7 +304,7 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *spi_ctx, const
             spi_device_transmit(handle_to_use, &trans)
         );
 
-        xSemaphoreGive(spi_ctx->impl_ctx->mutex);
+        xSemaphoreGive(ctx->impl_ctx->mutex);
         return spi_result;
     } else {
         return NHAL_ERR_BUSY;

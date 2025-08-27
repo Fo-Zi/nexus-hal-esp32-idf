@@ -53,40 +53,39 @@ static void nhal_async_config_to_esp_config(struct nhal_uart_config *config, con
 }
 
 nhal_result_t nhal_uart_enable_async_mode(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     const struct nhal_uart_async_buffered_config *buffered_cfg
 ) {
-    if (uart_ctxt == NULL || buffered_cfg == NULL || uart_ctxt->impl_ctx == NULL) {
+    if (ctx == NULL || buffered_cfg == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (!uart_ctxt->impl_ctx->is_initialized) {
+    if (!ctx->impl_ctx->is_initialized) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (!uart_ctxt->impl_ctx->is_driver_installed) {
+    if (!ctx->impl_ctx->is_driver_installed) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    BaseType_t mutex_ret_err = xSemaphoreTake(uart_ctxt->impl_ctx->mutex, pdMS_TO_TICKS(1000));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
     if (mutex_ret_err == pdTRUE) {
-        // Update mode to sync-and-async
-        uart_ctxt->current_mode = NHAL_UART_OP_MODE_SYNC_AND_ASYNC;
+        // Async mode initialized
         
         // Store async configuration in context extension
-        uart_ctxt->async_buffered.tx_buffer_size = buffered_cfg->tx_buffer_size;
-        uart_ctxt->async_buffered.rx_buffer_size = buffered_cfg->rx_buffer_size;
-        uart_ctxt->async_buffered.tx_complete_cb = buffered_cfg->tx_complete_cb;
-        uart_ctxt->async_buffered.rx_complete_cb = buffered_cfg->rx_complete_cb;
-        uart_ctxt->async_buffered.error_cb = buffered_cfg->error_cb;
-        uart_ctxt->async_buffered.callback_context = buffered_cfg->callback_context;
-        uart_ctxt->async_buffered.tx_buffer = buffered_cfg->tx_buffer;
-        uart_ctxt->async_buffered.rx_buffer = buffered_cfg->rx_buffer;
-        uart_ctxt->async_buffered.tx_bytes_queued = 0;
-        uart_ctxt->async_buffered.rx_bytes_available = 0;
-        uart_ctxt->async_buffered.is_async_initialized = true;
+        ctx->async_buffered.tx_buffer_size = buffered_cfg->tx_buffer_size;
+        ctx->async_buffered.rx_buffer_size = buffered_cfg->rx_buffer_size;
+        ctx->async_buffered.tx_complete_cb = buffered_cfg->tx_complete_cb;
+        ctx->async_buffered.rx_complete_cb = buffered_cfg->rx_complete_cb;
+        ctx->async_buffered.error_cb = buffered_cfg->error_cb;
+        ctx->async_buffered.callback_context = buffered_cfg->callback_context;
+        ctx->async_buffered.tx_buffer = buffered_cfg->tx_buffer;
+        ctx->async_buffered.rx_buffer = buffered_cfg->rx_buffer;
+        ctx->async_buffered.tx_bytes_queued = 0;
+        ctx->async_buffered.rx_bytes_available = 0;
+        ctx->async_buffered.is_async_initialized = true;
         
-        xSemaphoreGive(uart_ctxt->impl_ctx->mutex);
+        xSemaphoreGive(ctx->impl_ctx->mutex);
         return NHAL_OK;
     } else {
         return NHAL_ERR_BUS_BUSY;
@@ -94,19 +93,18 @@ nhal_result_t nhal_uart_enable_async_mode(
 }
 
 nhal_result_t nhal_uart_disable_async_mode(
-    struct nhal_uart_context * uart_ctxt
+    struct nhal_uart_context * ctx
 ) {
-    if (uart_ctxt == NULL || uart_ctxt->impl_ctx == NULL) {
+    if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    BaseType_t mutex_ret_err = xSemaphoreTake(uart_ctxt->impl_ctx->mutex, pdMS_TO_TICKS(1000));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
     if (mutex_ret_err == pdTRUE) {
-        // Revert to sync-only mode
-        uart_ctxt->current_mode = NHAL_UART_OP_MODE_SYNC_ONLY;
-        uart_ctxt->async_buffered.is_async_initialized = false;
+        // Async mode disabled
+        ctx->async_buffered.is_async_initialized = false;
         
-        xSemaphoreGive(uart_ctxt->impl_ctx->mutex);
+        xSemaphoreGive(ctx->impl_ctx->mutex);
         return NHAL_OK;
     } else {
         return NHAL_ERR_BUS_BUSY;
@@ -114,50 +112,50 @@ nhal_result_t nhal_uart_disable_async_mode(
 }
 
 nhal_result_t nhal_uart_set_buffered_config(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     const struct nhal_uart_async_buffered_config *buffered_cfg
 ) {
-    if (uart_ctxt == NULL || buffered_cfg == NULL) {
+    if (ctx == NULL || buffered_cfg == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Update configuration in context extension
-    uart_ctxt->async_buffered.tx_buffer_size = buffered_cfg->tx_buffer_size;
-    uart_ctxt->async_buffered.rx_buffer_size = buffered_cfg->rx_buffer_size;
-    uart_ctxt->async_buffered.tx_complete_cb = buffered_cfg->tx_complete_cb;
-    uart_ctxt->async_buffered.rx_complete_cb = buffered_cfg->rx_complete_cb;
-    uart_ctxt->async_buffered.error_cb = buffered_cfg->error_cb;
-    uart_ctxt->async_buffered.callback_context = buffered_cfg->callback_context;
-    uart_ctxt->async_buffered.tx_buffer = buffered_cfg->tx_buffer;
-    uart_ctxt->async_buffered.rx_buffer = buffered_cfg->rx_buffer;
+    ctx->async_buffered.tx_buffer_size = buffered_cfg->tx_buffer_size;
+    ctx->async_buffered.rx_buffer_size = buffered_cfg->rx_buffer_size;
+    ctx->async_buffered.tx_complete_cb = buffered_cfg->tx_complete_cb;
+    ctx->async_buffered.rx_complete_cb = buffered_cfg->rx_complete_cb;
+    ctx->async_buffered.error_cb = buffered_cfg->error_cb;
+    ctx->async_buffered.callback_context = buffered_cfg->callback_context;
+    ctx->async_buffered.tx_buffer = buffered_cfg->tx_buffer;
+    ctx->async_buffered.rx_buffer = buffered_cfg->rx_buffer;
     
     return NHAL_OK;
 }
 
 nhal_result_t nhal_uart_write_async(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     const uint8_t *data, size_t len,
     nhal_timeout_ms timeout
 ) {
-    if (uart_ctxt == NULL || data == NULL || len == 0) {
+    if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Use ESP-IDF's buffered write function
-    int bytes_written = uart_write_bytes(uart_ctxt->uart_bus_id, (const char *)data, len);
+    int bytes_written = uart_write_bytes(ctx->uart_bus_id, (const char *)data, len);
     if (bytes_written == len) {
-        uart_ctxt->async_buffered.tx_bytes_queued += len;
+        ctx->async_buffered.tx_bytes_queued += len;
         return NHAL_OK;
     } else if (bytes_written >= 0) {
-        uart_ctxt->async_buffered.tx_bytes_queued += bytes_written;
+        ctx->async_buffered.tx_bytes_queued += bytes_written;
         return NHAL_ERR_TIMEOUT; // Partial write
     } else {
         return NHAL_ERR_OTHER;
@@ -165,20 +163,20 @@ nhal_result_t nhal_uart_write_async(
 }
 
 nhal_result_t nhal_uart_read_async(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     uint8_t *data, size_t len, size_t *bytes_read,
     nhal_timeout_ms timeout
 ) {
-    if (uart_ctxt == NULL || data == NULL || len == 0 || bytes_read == NULL) {
+    if (ctx == NULL || data == NULL || len == 0 || bytes_read == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Use ESP-IDF's buffered read function
-    int read_result = uart_read_bytes(uart_ctxt->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
+    int read_result = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
     if (read_result >= 0) {
         *bytes_read = read_result;
         if (read_result == len) {
@@ -193,23 +191,23 @@ nhal_result_t nhal_uart_read_async(
 }
 
 nhal_result_t nhal_uart_get_rx_available(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     size_t *bytes_available
 ) {
-    if (uart_ctxt == NULL || bytes_available == NULL) {
+    if (ctx == NULL || bytes_available == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Get number of bytes available in RX buffer
     size_t available;
-    esp_err_t ret_err = uart_get_buffered_data_len(uart_ctxt->uart_bus_id, &available);
+    esp_err_t ret_err = uart_get_buffered_data_len(ctx->uart_bus_id, &available);
     if (ret_err == ESP_OK) {
         *bytes_available = available;
-        uart_ctxt->async_buffered.rx_bytes_available = available;
+        ctx->async_buffered.rx_bytes_available = available;
         return NHAL_OK;
     } else {
         *bytes_available = 0;
@@ -218,21 +216,21 @@ nhal_result_t nhal_uart_get_rx_available(
 }
 
 nhal_result_t nhal_uart_get_tx_free(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     size_t *bytes_free
 ) {
-    if (uart_ctxt == NULL || bytes_free == NULL) {
+    if (ctx == NULL || bytes_free == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // ESP-IDF doesn't provide direct access to TX buffer free space
     // Estimate based on buffer size and queued bytes
-    size_t estimated_free = uart_ctxt->async_buffered.tx_buffer_size - uart_ctxt->async_buffered.tx_bytes_queued;
-    if (estimated_free > uart_ctxt->async_buffered.tx_buffer_size) {
+    size_t estimated_free = ctx->async_buffered.tx_buffer_size - ctx->async_buffered.tx_bytes_queued;
+    if (estimated_free > ctx->async_buffered.tx_buffer_size) {
         estimated_free = 0; // Handle underflow
     }
     
@@ -241,21 +239,21 @@ nhal_result_t nhal_uart_get_tx_free(
 }
 
 nhal_result_t nhal_uart_flush_tx(
-    struct nhal_uart_context * uart_ctxt,
+    struct nhal_uart_context * ctx,
     nhal_timeout_ms timeout
 ) {
-    if (uart_ctxt == NULL) {
+    if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Wait for TX to complete
-    esp_err_t ret_err = uart_wait_tx_done(uart_ctxt->uart_bus_id, pdMS_TO_TICKS(timeout));
+    esp_err_t ret_err = uart_wait_tx_done(ctx->uart_bus_id, pdMS_TO_TICKS(timeout));
     if (ret_err == ESP_OK) {
-        uart_ctxt->async_buffered.tx_bytes_queued = 0; // Reset queued count
+        ctx->async_buffered.tx_bytes_queued = 0; // Reset queued count
         return NHAL_OK;
     } else {
         return nhal_map_esp_err(ret_err);
@@ -263,20 +261,20 @@ nhal_result_t nhal_uart_flush_tx(
 }
 
 nhal_result_t nhal_uart_clear_rx(
-    struct nhal_uart_context * uart_ctxt
+    struct nhal_uart_context * ctx
 ) {
-    if (uart_ctxt == NULL) {
+    if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
     
-    if (uart_ctxt->current_mode != NHAL_UART_OP_MODE_SYNC_AND_ASYNC || !uart_ctxt->async_buffered.is_async_initialized) {
+    if (!ctx->async_buffered.is_async_initialized) {
         return NHAL_ERR_INVALID_ARG; // Async mode not enabled or not initialized
     }
     
     // Flush RX buffer
-    esp_err_t ret_err = uart_flush_input(uart_ctxt->uart_bus_id);
+    esp_err_t ret_err = uart_flush_input(ctx->uart_bus_id);
     if (ret_err == ESP_OK) {
-        uart_ctxt->async_buffered.rx_bytes_available = 0; // Reset available count
+        ctx->async_buffered.rx_bytes_available = 0; // Reset available count
         return NHAL_OK;
     } else {
         return nhal_map_esp_err(ret_err);
