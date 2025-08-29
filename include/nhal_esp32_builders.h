@@ -3,13 +3,14 @@
 
 #include "driver/uart.h"
 
-#define NHAL_ESP32_I2C_MASTER_BUILD(name, bus_id, sda, scl, sda_pullup, scl_pullup, clock_freq) \
+#define NHAL_ESP32_I2C_MASTER_BUILD(name, bus_id, sda, scl, sda_pullup, scl_pullup, clock_freq, timeout_ms) \
     static struct nhal_i2c_impl_config name##_i2c_impl_cfg = { \
         .mode = I2C_MODE_MASTER, \
         .sda_io_num = (sda), \
         .scl_io_num = (scl), \
         .sda_pullup_en = (sda_pullup) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE, \
-        .scl_pullup_en = (scl_pullup) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE \
+        .scl_pullup_en = (scl_pullup) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE, \
+        .default_timeout_ms = (timeout_ms) \
     }; \
     static struct nhal_i2c_impl_ctx name##_i2c_impl_ctx = {0}; \
     static struct nhal_i2c_config name##_i2c_cfg = { \
@@ -45,7 +46,7 @@
 #define NHAL_ESP32_PIN_CONFIG_REF(name) (&name##_pin_cfg)
 #define NHAL_ESP32_PIN_CONTEXT_REF(name) (&name##_pin_ctx)
 
-#define NHAL_ESP32_UART_BASIC_BUILD(name, uart_num, tx_pin, rx_pin, baud_rate) \
+#define NHAL_ESP32_UART_BASIC_BUILD(name, uart_num, tx_pin, rx_pin, baud_rate, timeout_ms) \
     static struct nhal_uart_impl_config name##_uart_impl_cfg = { \
         .tx_pin_number = (tx_pin), \
         .rx_pin_number = (rx_pin), \
@@ -57,7 +58,8 @@
         .source_clk = UART_SCLK_APB, \
         .intr_alloc_flags = 0, \
         .queue_size = 10, \
-        .queue_msg_size = 0 \
+        .queue_msg_size = 0, \
+        .default_timeout_ms = (timeout_ms) \
     }; \
     static struct nhal_uart_impl_ctx name##_uart_impl_ctx = {0}; \
     static struct nhal_uart_config name##_uart_cfg = { \

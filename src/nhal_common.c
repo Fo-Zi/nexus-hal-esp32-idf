@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
+#include "esp_timer.h"
 
 // ESP-IDF version compatibility check
 #ifdef ESP_IDF_VERSION_MAJOR
@@ -41,4 +42,14 @@ void nhal_delay_milliseconds(uint32_t milliseconds)
         // If less than 1 tick, delay at least 1 tick
         vTaskDelay(1);
     }
+}
+
+uint64_t nhal_get_timestamp_microseconds(void)
+{
+    return esp_timer_get_time();
+}
+
+uint32_t nhal_get_timestamp_milliseconds(void)
+{
+    return (uint32_t)(esp_timer_get_time() / 1000);
 }

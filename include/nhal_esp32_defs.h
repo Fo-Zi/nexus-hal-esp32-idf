@@ -32,6 +32,7 @@ struct nhal_i2c_impl_config{
     uint8_t     scl_io_num      ;
     uint8_t     sda_pullup_en   ;
     uint8_t     scl_pullup_en   ;
+    uint32_t    default_timeout_ms;  /**< Default timeout for blocking operations */
 } ;
 
 struct nhal_uart_impl_config{
@@ -46,6 +47,7 @@ struct nhal_uart_impl_config{
     uint8_t intr_alloc_flags;
     uint8_t queue_size      ;
     uint8_t queue_msg_size  ;
+    uint32_t default_timeout_ms;  /**< Default timeout for blocking operations */
 } ;
 
 struct nhal_async_impl_config{
@@ -80,6 +82,7 @@ struct nhal_spi_impl_config{
     uint8_t miso_pin        ;
     uint8_t sclk_pin        ;
     uint8_t cs_pin          ;
+    uint32_t default_timeout_ms;  /**< Default timeout for blocking operations */
 } ;
 
 
@@ -105,6 +108,7 @@ struct nhal_i2c_impl_ctx{
     bool is_initialized;
     bool is_configured;
     bool is_driver_installed;
+    uint32_t timeout_ms;  /**< Default timeout for operations */
 
 #if defined(NHAL_I2C_ASYNC_SUPPORT)
     i2c_cmd_handle_t async_cmd_handle;
@@ -116,6 +120,7 @@ struct nhal_uart_impl_ctx{
     bool is_initialized;
     bool is_configured;
     bool is_driver_installed;
+    uint32_t timeout_ms;  /**< Default timeout for operations */
 
 #if defined(NHAL_UART_ASYNC_SUPPORT)
     QueueHandle_t uart_queue;
@@ -128,6 +133,7 @@ struct nhal_spi_impl_ctx{
     bool is_configured;
     bool is_driver_installed;
     spi_device_handle_t device_handle;
+    uint32_t timeout_ms;  /**< Default timeout for operations */
 
 #if defined(NHAL_SPI_ASYNC_SUPPORT)
     spi_device_handle_t async_device_handle;

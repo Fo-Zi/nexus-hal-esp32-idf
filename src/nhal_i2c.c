@@ -89,6 +89,9 @@ nhal_result_t nhal_i2c_master_set_config(struct nhal_i2c_context *ctx, struct nh
 
     nhal_config_to_esp_config(config ,&esp_config);
 
+    // Store timeout from impl config
+    ctx->impl_ctx->timeout_ms = config->impl_config->default_timeout_ms;
+
     BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(1000) );
     if(mutex_ret_err == pdTRUE){
         ret_err = i2c_param_config(ctx->i2c_bus_id ,&esp_config);
@@ -120,7 +123,7 @@ nhal_result_t nhal_i2c_master_get_config(struct nhal_i2c_context *ctx, struct nh
     return NHAL_ERR_OTHER;   // idf doesn't support this feature
 };
 
-nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *ctx, nhal_i2c_address dev_address, const uint8_t *data, size_t len, nhal_timeout_ms timeout){
+nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *ctx, nhal_i2c_address dev_address, const uint8_t *data, size_t len){
 
     if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -134,7 +137,7 @@ nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *ctx, nhal_i2c_addre
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms) );
     if(mutex_ret_err == pdTRUE){
         nhal_result_t i2c_result = nhal_map_esp_err(
             i2c_master_write_to_device(
@@ -142,7 +145,7 @@ nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *ctx, nhal_i2c_addre
                 dev_address,
                 data,
                 len,
-                pdMS_TO_TICKS(timeout)
+                pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms)
             )
         );
         xSemaphoreGive(ctx->impl_ctx->mutex);
@@ -152,7 +155,7 @@ nhal_result_t nhal_i2c_master_write(struct nhal_i2c_context *ctx, nhal_i2c_addre
     }
 };
 
-nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *ctx, nhal_i2c_address dev_address, uint8_t *data, size_t len, nhal_timeout_ms timeout){
+nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *ctx, nhal_i2c_address dev_address, uint8_t *data, size_t len){
 
     if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -166,7 +169,7 @@ nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *ctx, nhal_i2c_addres
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms) );
     if(mutex_ret_err == pdTRUE){
         nhal_result_t i2c_result;
 
@@ -181,7 +184,7 @@ nhal_result_t nhal_i2c_master_read(struct nhal_i2c_context *ctx, nhal_i2c_addres
                     dev_address,
                     data,
                     len,
-                    pdMS_TO_TICKS(timeout)
+                    pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms)
                 )
             );
         }
@@ -197,8 +200,7 @@ nhal_result_t nhal_i2c_master_write_read_reg(
     struct nhal_i2c_context *ctx,
     nhal_i2c_address dev_address,
     const uint8_t *reg_address, size_t reg_len,
-    uint8_t *data, size_t data_len,
-    nhal_timeout_ms timeout
+    uint8_t *data, size_t data_len
 ){
     if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -212,7 +214,7 @@ nhal_result_t nhal_i2c_master_write_read_reg(
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout) );
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms) );
     if(mutex_ret_err == pdTRUE){
         nhal_result_t i2c_result = nhal_map_esp_err(
             i2c_master_write_read_device(
@@ -222,7 +224,7 @@ nhal_result_t nhal_i2c_master_write_read_reg(
                 reg_len,
                 data,
                 data_len,
-                pdMS_TO_TICKS(timeout)
+                pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms)
             )
         );
         xSemaphoreGive(ctx->impl_ctx->mutex);

@@ -85,6 +85,9 @@ nhal_result_t nhal_uart_set_config(struct nhal_uart_context * ctx, struct nhal_u
     uart_config_t esp_uart_config;
     nhal_config_to_esp_config(cfg, &esp_uart_config);
 
+    // Store timeout from impl config
+    ctx->impl_ctx->timeout_ms = cfg->impl_config->default_timeout_ms;
+
     esp_err_t err = uart_param_config(ctx->uart_bus_id, &esp_uart_config);
     if (err != ESP_OK) {
         return nhal_map_esp_err(err);
@@ -120,7 +123,7 @@ nhal_result_t nhal_uart_get_config(struct nhal_uart_context * ctx, struct nhal_u
     return NHAL_ERR_OTHER; // esp-idf does not provide a function to get config
 }
 
-nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *data, size_t len) {
     if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -140,7 +143,7 @@ nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *dat
     return NHAL_ERR_OTHER;
 }
 
-nhal_result_t nhal_uart_read(struct nhal_uart_context * ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+nhal_result_t nhal_uart_read(struct nhal_uart_context * ctx, uint8_t *data, size_t len) {
     if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -153,7 +156,7 @@ nhal_result_t nhal_uart_read(struct nhal_uart_context * ctx, uint8_t *data, size
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    int bytes_read = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
+    int bytes_read = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (bytes_read == len) {
         return NHAL_OK;
     } else if (bytes_read >= 0) {

@@ -138,8 +138,7 @@ nhal_result_t nhal_uart_set_buffered_config(
 
 nhal_result_t nhal_uart_write_async(
     struct nhal_uart_context * ctx,
-    const uint8_t *data, size_t len,
-    nhal_timeout_ms timeout
+    const uint8_t *data, size_t len
 ) {
     if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
@@ -164,8 +163,7 @@ nhal_result_t nhal_uart_write_async(
 
 nhal_result_t nhal_uart_read_async(
     struct nhal_uart_context * ctx,
-    uint8_t *data, size_t len, size_t *bytes_read,
-    nhal_timeout_ms timeout
+    uint8_t *data, size_t len, size_t *bytes_read
 ) {
     if (ctx == NULL || data == NULL || len == 0 || bytes_read == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -176,7 +174,7 @@ nhal_result_t nhal_uart_read_async(
     }
     
     // Use ESP-IDF's buffered read function
-    int read_result = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
+    int read_result = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (read_result >= 0) {
         *bytes_read = read_result;
         if (read_result == len) {
@@ -239,8 +237,7 @@ nhal_result_t nhal_uart_get_tx_free(
 }
 
 nhal_result_t nhal_uart_flush_tx(
-    struct nhal_uart_context * ctx,
-    nhal_timeout_ms timeout
+    struct nhal_uart_context * ctx
 ) {
     if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -251,7 +248,7 @@ nhal_result_t nhal_uart_flush_tx(
     }
     
     // Wait for TX to complete
-    esp_err_t ret_err = uart_wait_tx_done(ctx->uart_bus_id, pdMS_TO_TICKS(timeout));
+    esp_err_t ret_err = uart_wait_tx_done(ctx->uart_bus_id, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (ret_err == ESP_OK) {
         ctx->async_buffered.tx_bytes_queued = 0; // Reset queued count
         return NHAL_OK;

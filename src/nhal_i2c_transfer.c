@@ -8,15 +8,14 @@
 nhal_result_t nhal_i2c_master_perform_transfer(
     struct nhal_i2c_context * ctx,
     nhal_i2c_transfer_op_t *ops,
-    size_t num_ops,
-    nhal_timeout_ms timeout_ms
+    size_t num_ops
 ) {
     if (ctx == NULL || ops == NULL || num_ops == 0) {
         return NHAL_ERR_INVALID_ARG;
     }
 
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout_ms) );
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms) );
     if(mutex_ret_err == pdTRUE){
 
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -64,7 +63,7 @@ nhal_result_t nhal_i2c_master_perform_transfer(
             }
         }
 
-        ret = i2c_master_cmd_begin(ctx->i2c_bus_id, cmd, pdMS_TO_TICKS(timeout_ms));
+        ret = i2c_master_cmd_begin(ctx->i2c_bus_id, cmd, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
 
     end_transfer:
         i2c_cmd_link_delete(cmd);

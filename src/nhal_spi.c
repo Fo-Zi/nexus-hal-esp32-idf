@@ -145,6 +145,9 @@ nhal_result_t nhal_spi_master_set_config(struct nhal_spi_context *ctx, struct nh
     nhal_bus_config_to_esp_config(config, &esp_bus_config);
     nhal_config_to_esp_config(config, &esp_device_config);
 
+    // Store timeout from impl config
+    ctx->impl_ctx->timeout_ms = config->impl_config->default_timeout_ms;
+
     BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(1000));
     if (mutex_ret_err == pdTRUE) {
         // Initialize SPI bus if not already done
@@ -180,7 +183,7 @@ nhal_result_t nhal_spi_master_get_config(struct nhal_spi_context *ctx, struct nh
     return NHAL_ERR_OTHER; // ESP-IDF doesn't provide a way to get configuration
 }
 
-nhal_result_t nhal_spi_master_write(struct nhal_spi_context *ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+nhal_result_t nhal_spi_master_write(struct nhal_spi_context *ctx, const uint8_t *data, size_t len) {
     if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -193,7 +196,7 @@ nhal_result_t nhal_spi_master_write(struct nhal_spi_context *ctx, const uint8_t 
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
         trans.length = len * 8; // Length in bits
@@ -222,7 +225,7 @@ nhal_result_t nhal_spi_master_write(struct nhal_spi_context *ctx, const uint8_t 
     }
 }
 
-nhal_result_t nhal_spi_master_read(struct nhal_spi_context *ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
+nhal_result_t nhal_spi_master_read(struct nhal_spi_context *ctx, uint8_t *data, size_t len) {
     if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -235,7 +238,7 @@ nhal_result_t nhal_spi_master_read(struct nhal_spi_context *ctx, uint8_t *data, 
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
         trans.length = len * 8; // Length in bits
@@ -263,7 +266,7 @@ nhal_result_t nhal_spi_master_read(struct nhal_spi_context *ctx, uint8_t *data, 
     }
 }
 
-nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *ctx, const uint8_t *tx_data, size_t tx_len, uint8_t *rx_data, size_t rx_len, nhal_timeout_ms timeout) {
+nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *ctx, const uint8_t *tx_data, size_t tx_len, uint8_t *rx_data, size_t rx_len) {
     if (ctx == NULL || ctx->impl_ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -280,7 +283,7 @@ nhal_result_t nhal_spi_master_write_read(struct nhal_spi_context *ctx, const uin
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(timeout));
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (mutex_ret_err == pdTRUE) {
         spi_transaction_t trans = {0};
 

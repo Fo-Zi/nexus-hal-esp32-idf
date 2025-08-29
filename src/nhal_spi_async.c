@@ -141,8 +141,7 @@ nhal_async_status_t nhal_spi_master_get_async_status(
 
 nhal_result_t nhal_spi_write_async(
     struct nhal_spi_context * ctx,
-    const uint8_t * data, size_t len,
-    nhal_timeout_ms timeout_ms
+    const uint8_t * data, size_t len
 ) {
     if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
@@ -176,7 +175,7 @@ nhal_result_t nhal_spi_write_async(
     async_trans->user_context = ctx;  // Pass SPI context as default
     
     // Queue the transaction
-    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(timeout_ms));
+    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (ret_err != ESP_OK) {
         free(async_trans);
         free(trans);
@@ -188,8 +187,7 @@ nhal_result_t nhal_spi_write_async(
 
 nhal_result_t nhal_spi_read_async(
     struct nhal_spi_context * ctx,
-    uint8_t * data, size_t len,
-    nhal_timeout_ms timeout_ms
+    uint8_t * data, size_t len
 ) {
     if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
@@ -223,7 +221,7 @@ nhal_result_t nhal_spi_read_async(
     async_trans->user_context = ctx;  // Pass SPI context as default
     
     // Queue the transaction
-    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(timeout_ms));
+    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (ret_err != ESP_OK) {
         free(async_trans);
         free(trans);
@@ -236,8 +234,7 @@ nhal_result_t nhal_spi_read_async(
 nhal_result_t nhal_spi_write_read_async(
     struct nhal_spi_context * ctx,
     const uint8_t * tx_data, size_t tx_len,
-    uint8_t * rx_data, size_t rx_len,
-    nhal_timeout_ms timeout_ms
+    uint8_t * rx_data, size_t rx_len
 ) {
     if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
@@ -276,7 +273,7 @@ nhal_result_t nhal_spi_write_read_async(
     async_trans->user_context = ctx;  // Pass SPI context as default
     
     // Queue the transaction
-    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(timeout_ms));
+    esp_err_t ret_err = spi_device_queue_trans(ctx->impl_ctx->async_device_handle, trans, pdMS_TO_TICKS(ctx->impl_ctx->timeout_ms));
     if (ret_err != ESP_OK) {
         free(async_trans);
         free(trans);
