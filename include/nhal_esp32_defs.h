@@ -79,7 +79,11 @@ struct nhal_pin_context {
     gpio_num_t pin_num;
     bool is_initialized;
     bool is_configured;
+    bool is_interrupt_configured;
+    bool is_interrupt_enabled;
     nhal_pin_callback_t user_callback;
+    void *user_data;
+    nhal_pin_int_trigger_t interrupt_trigger;
 };
 
 struct nhal_i2c_context {

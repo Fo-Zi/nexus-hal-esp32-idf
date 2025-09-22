@@ -13,11 +13,11 @@ This implementation leverages ESP-IDF's proven peripheral drivers while providin
 - FreeRTOS integration for thread safety
 - Platform-specific optimizations (DMA, interrupt handling)
 
-### Transparent Optimization
-The implementation automatically optimizes operations based on:
-- **Transfer size**: Small transfers use CPU copy, large transfers use DMA
+### Synchronous Operations
+This implementation currently provides synchronous (blocking) operations:
+- **Transfer handling**: All operations block until completion or timeout
 - **Hardware capabilities**: Utilizes available ESP32 hardware features
-- **Context mode**: Sync-only vs sync-and-async operation modes
+- **Thread safety**: Protected with FreeRTOS mutexes where needed
 
 ### State Management
 Enforces the NHAL state lifecycle through runtime validation:
@@ -45,34 +45,28 @@ Enforces the NHAL state lifecycle through runtime validation:
 ## Implementation Mapping
 
 ### I2C Master
-- **Files**: `nhal_i2c.c`, `nhal_i2c_async.c`, `nhal_i2c_transfer.c`
+- **Files**: `nhal_i2c.c`, `nhal_i2c_transfer.c`
 - **ESP-IDF APIs**: `i2c_master_*` functions from `driver/i2c_master.h`
-- **Features**: Master mode, 7-bit addressing, timeout support
-- **Optimizations**: Automatic DMA usage for large transfers
+- **Features**: Master mode, 7-bit addressing, timeout support, blocking operations
+- **Status**: ✅ Complete implementation
 
 ### SPI Master
-- **Files**: `nhal_spi.c`, `nhal_spi_async.c`  
+- **File**: `nhal_spi.c`
 - **ESP-IDF APIs**: `spi_master_*` functions from `driver/spi_master.h`
-- **Features**: Full-duplex, configurable clock/mode, CS control
-- **Optimizations**: DMA for async operations, CPU for sync small transfers
+- **Features**: Full-duplex, configurable clock/mode, CS control, blocking operations
+- **Status**: ✅ Complete implementation
 
 ### UART
-- **Files**: `nhal_uart.c`, `nhal_uart_async.c`
-- **ESP-IDF APIs**: `uart_*` functions from `driver/uart.h`  
-- **Features**: Configurable baud rates, parity, stop bits, flow control
-- **Async Support**: Ring buffer-based non-blocking I/O
+- **File**: `nhal_uart.c`
+- **ESP-IDF APIs**: `uart_*` functions from `driver/uart.h`
+- **Features**: Configurable baud rates, parity, stop bits, flow control, blocking operations
+- **Status**: ✅ Complete implementation
 
 ### GPIO/Pin Control
 - **File**: `nhal_pin.c`
 - **ESP-IDF APIs**: `gpio_*` functions from `driver/gpio.h`
-- **Features**: Input/output, pull-up/down, interrupt support
-- **Thread Safety**: Interrupt service installation and management
-
-### Watchdog Timer
-- **File**: `nhal_wdt.c`
-- **ESP-IDF APIs**: `esp_task_wdt_*` functions from `esp_task_wdt.h`
-- **Features**: Task watchdog configuration, feeding, panic handling
-- **Integration**: FreeRTOS task monitoring
+- **Features**: Input/output, pull-up/down, configurable interrupt support
+- **Status**: ✅ Complete implementation
 
 ### Common Utilities
 - **Files**: `nhal_common.c`, `nhal_esp32_defs.c`
@@ -148,15 +142,45 @@ Some peripherals require ESP-IDF configuration:
 ## Memory and Performance
 
 ### Memory Usage
-- **Sync-only mode**: Minimal RAM usage, stack-based operations
-- **Sync-and-async mode**: Additional RAM for queues and DMA descriptors
+- **Current implementation**: Minimal RAM usage, stack-based operations
 - **Per-context overhead**: ~100-200 bytes depending on peripheral type
+- **Thread safety**: Additional mutex overhead for I2C, SPI, UART
 
 ### Performance Characteristics
-- **I2C**: Up to 1MHz clock, DMA for transfers >32 bytes
-- **SPI**: Up to 80MHz clock, DMA for transfers >64 bytes  
-- **UART**: Up to 5Mbps, ring buffers for async operations
-- **GPIO**: Microsecond-level response times for pin operations
+- **I2C**: Up to 1MHz clock, blocking transfers
+- **SPI**: Up to 80MHz clock, blocking transfers
+- **UART**: Up to 5Mbps, blocking read/write operations
+- **GPIO**: Microsecond-level response times for pin operations, interrupt-driven callbacks
+
+## Implementation Status
+
+### Completed Features
+All HAL interface functions are fully implemented:
+
+**PIN Interface:**
+- `nhal_pin_init/deinit()` - Context initialization and cleanup
+- `nhal_pin_set/get_config()` - Pin configuration management
+- `nhal_pin_set/get_state()` - Pin state control
+- `nhal_pin_set_direction()` - Direction and pull-up/down configuration
+- `nhal_pin_set_interrupt_config()` - Interrupt configuration with trigger types
+- `nhal_pin_interrupt_enable/disable()` - Runtime interrupt control
+
+**I2C Master Interface:**
+- `nhal_i2c_master_init/deinit()` - Context initialization and cleanup
+- `nhal_i2c_master_set/get_config()` - Bus configuration management
+- `nhal_i2c_master_write/read()` - Basic data transfer operations
+- `nhal_i2c_master_write_read_reg()` - Register-based read operations
+
+**SPI Master Interface:**
+- `nhal_spi_master_init/deinit()` - Context initialization and cleanup
+- `nhal_spi_master_set/get_config()` - Bus configuration management
+- `nhal_spi_master_write/read()` - Basic data transfer operations
+- `nhal_spi_master_write_read()` - Full-duplex transfer operations
+
+**UART Interface:**
+- `nhal_uart_init/deinit()` - Context initialization and cleanup
+- `nhal_uart_set/get_config()` - Port configuration management
+- `nhal_uart_write/read()` - Blocking data transfer operations
 
 ## Version Compatibility
 

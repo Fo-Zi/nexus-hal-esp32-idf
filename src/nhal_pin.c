@@ -16,10 +16,28 @@ void nhal_config_to_esp_config(struct nhal_pin_context * ctx, struct nhal_pin_co
 static bool isr_service_initialized = false;
 static int isr_service_ref_count = 0;
 
+static gpio_int_type_t nhal_trigger_to_esp_int_type(nhal_pin_int_trigger_t trigger) {
+    switch (trigger) {
+        case NHAL_PIN_INT_TRIGGER_RISING_EDGE:
+            return GPIO_INTR_POSEDGE;
+        case NHAL_PIN_INT_TRIGGER_FALLING_EDGE:
+            return GPIO_INTR_NEGEDGE;
+        case NHAL_PIN_INT_TRIGGER_BOTH_EDGES:
+            return GPIO_INTR_ANYEDGE;
+        case NHAL_PIN_INT_TRIGGER_HIGH_LEVEL:
+            return GPIO_INTR_HIGH_LEVEL;
+        case NHAL_PIN_INT_TRIGGER_LOW_LEVEL:
+            return GPIO_INTR_LOW_LEVEL;
+        case NHAL_PIN_INT_TRIGGER_NONE:
+        default:
+            return GPIO_INTR_DISABLE;
+    }
+}
+
 static void IRAM_ATTR gpio_isr_wrapper(void *arg) {
     struct nhal_pin_context *ctx = (struct nhal_pin_context *)arg;
     if (ctx && ctx->user_callback) {
-        ctx->user_callback(ctx, NULL);
+        ctx->user_callback(ctx, ctx->user_data);
     }
 }
 nhal_result_t nhal_pin_init(struct nhal_pin_context * ctx){
@@ -43,7 +61,11 @@ nhal_result_t nhal_pin_init(struct nhal_pin_context * ctx){
     isr_service_ref_count++;
     ctx->is_initialized = true;
     ctx->is_configured = false;
+    ctx->is_interrupt_configured = false;
+    ctx->is_interrupt_enabled = false;
     ctx->user_callback = NULL;
+    ctx->user_data = NULL;
+    ctx->interrupt_trigger = NHAL_PIN_INT_TRIGGER_NONE;
     return NHAL_OK;
 };
 
@@ -56,10 +78,15 @@ nhal_result_t nhal_pin_deinit(struct nhal_pin_context * ctx){
         return NHAL_OK;
     }
 
-    // Remove ISR handler for this specific pin if it was set
-    gpio_isr_handler_remove(ctx->pin_num);
+    // Disable interrupt if enabled
+    if (ctx->is_interrupt_enabled) {
+        gpio_isr_handler_remove(ctx->pin_num);
+        gpio_set_intr_type(ctx->pin_num, GPIO_INTR_DISABLE);
+        ctx->is_interrupt_enabled = false;
+    }
 
     ctx->is_initialized = false;
+    ctx->is_interrupt_configured = false;
     isr_service_ref_count--;
 
     // Only uninstall ISR service when no pins are using it
@@ -135,7 +162,12 @@ nhal_result_t nhal_pin_set_state(struct nhal_pin_context * ctx, nhal_pin_state_t
     return result;
 };
 
-nhal_result_t nhal_pin_set_callback( struct nhal_pin_context * ctx, nhal_pin_callback_t callback ){
+nhal_result_t nhal_pin_set_interrupt_config(
+    struct nhal_pin_context *ctx,
+    nhal_pin_int_trigger_t trigger,
+    nhal_pin_callback_t callback,
+    void *user_data
+){
     if (ctx == NULL || callback == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
@@ -148,13 +180,81 @@ nhal_result_t nhal_pin_set_callback( struct nhal_pin_context * ctx, nhal_pin_cal
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
+    // Store the interrupt configuration
     ctx->user_callback = callback;
-    nhal_result_t result = nhal_map_esp_err(gpio_isr_handler_add(ctx->pin_num, gpio_isr_wrapper, ctx));
-    if(result != NHAL_OK){
+    ctx->user_data = user_data;
+    ctx->interrupt_trigger = trigger;
+    ctx->is_interrupt_configured = true;
+    ctx->is_interrupt_enabled = false;
+
+    return NHAL_OK;
+}
+
+nhal_result_t nhal_pin_interrupt_enable(struct nhal_pin_context *ctx){
+    if (ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
+    if (!ctx->is_interrupt_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
+    if (ctx->is_interrupt_enabled) {
+        return NHAL_OK; // Already enabled
+    }
+
+    // Set the interrupt type
+    gpio_int_type_t esp_int_type = nhal_trigger_to_esp_int_type(ctx->interrupt_trigger);
+    nhal_result_t result = nhal_map_esp_err(gpio_set_intr_type(ctx->pin_num, esp_int_type));
+    if (result != NHAL_OK) {
         return result;
     }
-    return result;
-};
+
+    // Add the ISR handler
+    result = nhal_map_esp_err(gpio_isr_handler_add(ctx->pin_num, gpio_isr_wrapper, ctx));
+    if (result != NHAL_OK) {
+        gpio_set_intr_type(ctx->pin_num, GPIO_INTR_DISABLE); // Cleanup on failure
+        return result;
+    }
+
+    ctx->is_interrupt_enabled = true;
+    return NHAL_OK;
+}
+
+nhal_result_t nhal_pin_interrupt_disable(struct nhal_pin_context *ctx){
+    if (ctx == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
+
+    if (!ctx->is_interrupt_enabled) {
+        return NHAL_OK; // Already disabled
+    }
+
+    // Remove the ISR handler
+    gpio_isr_handler_remove(ctx->pin_num);
+
+    // Disable the interrupt
+    nhal_result_t result = nhal_map_esp_err(gpio_set_intr_type(ctx->pin_num, GPIO_INTR_DISABLE));
+    if (result != NHAL_OK) {
+        return result;
+    }
+
+    ctx->is_interrupt_enabled = false;
+    return NHAL_OK;
+}
+
 
 nhal_result_t nhal_pin_set_direction(struct nhal_pin_context * ctx, nhal_pin_dir_t direction, nhal_pin_pull_mode_t pull_mode){
     if (ctx == NULL) {
