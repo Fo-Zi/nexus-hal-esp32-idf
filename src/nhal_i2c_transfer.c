@@ -7,20 +7,35 @@
 
 nhal_result_t nhal_i2c_master_perform_transfer(
     struct nhal_i2c_context * ctx,
+    nhal_i2c_address_t dev_address,
     nhal_i2c_transfer_op_t *ops,
-    size_t num_ops,
-    nhal_timeout_ms timeout_ms
+    size_t num_ops
 ) {
     if (ctx == NULL || ops == NULL || num_ops == 0) {
         return NHAL_ERR_INVALID_ARG;
     }
 
+    if (!ctx->is_initialized) {
+        return NHAL_ERR_NOT_INITIALIZED;
+    }
 
-    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->impl_ctx->mutex , pdMS_TO_TICKS(timeout_ms) );
+    if (!ctx->is_configured) {
+        return NHAL_ERR_NOT_CONFIGURED;
+    }
+
+    // Convert NHAL address to ESP32 format
+    uint8_t esp_addr;
+    nhal_result_t addr_result = nhal_i2c_address_to_esp(dev_address, &esp_addr);
+    if (addr_result != NHAL_OK) {
+        return addr_result;
+    }
+
+    BaseType_t mutex_ret_err = xSemaphoreTake(ctx->mutex, pdMS_TO_TICKS(ctx->timeout_ms));
     if(mutex_ret_err == pdTRUE){
 
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         if (cmd == NULL) {
+            xSemaphoreGive(ctx->mutex);
             return NHAL_ERR_OTHER;
         }
 
@@ -35,8 +50,8 @@ nhal_result_t nhal_i2c_master_perform_transfer(
             }
 
             if (!(op->flags & NHAL_I2C_TRANSFER_MSG_NO_ADDR)) {
-                uint8_t addr_byte = (op->address & 0xFE);
-                if (op->flags & NHAL_I2C_TRANSFER_MSG_READ) {
+                uint8_t addr_byte = (esp_addr << 1);
+                if (op->type == NHAL_I2C_READ_OP) {
                     addr_byte |= I2C_MASTER_READ;
                 } else {
                     addr_byte |= I2C_MASTER_WRITE;
@@ -46,7 +61,7 @@ nhal_result_t nhal_i2c_master_perform_transfer(
                 if (ret != ESP_OK) goto end_transfer;
             }
 
-            if (op->flags & NHAL_I2C_TRANSFER_MSG_READ) {
+            if (op->type == NHAL_I2C_READ_OP) {
                 if (op->read.length > 0) {
                     ret = i2c_master_read(cmd, op->read.buffer, op->read.length, I2C_MASTER_LAST_NACK);
                     if (ret != ESP_OK) goto end_transfer;
@@ -64,15 +79,15 @@ nhal_result_t nhal_i2c_master_perform_transfer(
             }
         }
 
-        ret = i2c_master_cmd_begin(ctx->i2c_bus_id, cmd, pdMS_TO_TICKS(timeout_ms));
+        ret = i2c_master_cmd_begin(ctx->i2c_bus_id, cmd, pdMS_TO_TICKS(ctx->timeout_ms));
 
     end_transfer:
         i2c_cmd_link_delete(cmd);
-        xSemaphoreGive(ctx->impl_ctx->mutex);
+        xSemaphoreGive(ctx->mutex);
         return nhal_map_esp_err(ret);
 
     }else{
-        return NHAL_ERR_TIMEOUT;
+        return NHAL_ERR_BUSY;
     }
 
 };

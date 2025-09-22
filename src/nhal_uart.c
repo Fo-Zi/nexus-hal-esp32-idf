@@ -1,7 +1,7 @@
 #include "nhal_esp32_defs.h"
 #include "nhal_esp32_helpers.h"
 
-#include <nhal_uart_basic.h>
+#include <nhal_uart.h>
 #include <nhal_uart_types.h>
 
 #include "driver/uart.h"
@@ -53,32 +53,64 @@ static void nhal_config_to_esp_config(struct nhal_uart_config *config, uart_conf
 };
 
 nhal_result_t nhal_uart_init(struct nhal_uart_context * ctx) {
-    if (ctx == NULL || ctx->impl_ctx == NULL) {
+    if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (ctx->impl_ctx->is_initialized) {
+    if (ctx->is_initialized) {
         return NHAL_OK;
     }
 
+    // Create mutex for thread safety
+    ctx->mutex = xSemaphoreCreateMutex();
+    if (ctx->mutex == NULL) {
+        return NHAL_ERR_OTHER;
+    }
+
     // Context initialized
-    ctx->impl_ctx->is_initialized = true;
-    ctx->impl_ctx->is_configured = false;
+    ctx->is_initialized = true;
+    ctx->is_configured = false;
+    ctx->is_driver_installed = false;
+    ctx->timeout_ms = 1000; // Default 1 second timeout
 
     return NHAL_OK;
 }
 
 nhal_result_t nhal_uart_deinit(struct nhal_uart_context * ctx) {
-    esp_err_t err = uart_driver_delete(ctx->uart_bus_id);
-    return nhal_map_esp_err(err);
-}
-
-nhal_result_t nhal_uart_set_config(struct nhal_uart_context * ctx, struct nhal_uart_config *cfg) {
-    if (ctx == NULL || cfg == NULL || ctx->impl_ctx == NULL) {
+    if (ctx == NULL) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!ctx->impl_ctx->is_initialized) {
+    if (!ctx->is_initialized) {
+        return NHAL_OK;
+    }
+
+    if (ctx->is_driver_installed) {
+        esp_err_t err = uart_driver_delete(ctx->uart_bus_id);
+        if (err != ESP_OK) {
+            return nhal_map_esp_err(err);
+        }
+    }
+
+    // Clean up mutex
+    if (ctx->mutex != NULL) {
+        vSemaphoreDelete(ctx->mutex);
+        ctx->mutex = NULL;
+    }
+
+    ctx->is_initialized = false;
+    ctx->is_configured = false;
+    ctx->is_driver_installed = false;
+
+    return NHAL_OK;
+}
+
+nhal_result_t nhal_uart_set_config(struct nhal_uart_context * ctx, struct nhal_uart_config *cfg) {
+    if (ctx == NULL || cfg == NULL) {
+        return NHAL_ERR_INVALID_ARG;
+    }
+
+    if (!ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
@@ -112,7 +144,8 @@ nhal_result_t nhal_uart_set_config(struct nhal_uart_context * ctx, struct nhal_u
         return nhal_map_esp_err(err);
     }
 
-    ctx->impl_ctx->is_configured = true;
+    ctx->is_configured = true;
+    ctx->is_driver_installed = true;
     return NHAL_OK;
 }
 
@@ -120,16 +153,16 @@ nhal_result_t nhal_uart_get_config(struct nhal_uart_context * ctx, struct nhal_u
     return NHAL_ERR_OTHER; // esp-idf does not provide a function to get config
 }
 
-nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *data, size_t len, nhal_timeout_ms timeout) {
-    if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
+nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *data, size_t len) {
+    if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!ctx->impl_ctx->is_initialized) {
+    if (!ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
-    if (!ctx->impl_ctx->is_configured) {
+    if (!ctx->is_configured) {
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
@@ -140,20 +173,20 @@ nhal_result_t nhal_uart_write(struct nhal_uart_context * ctx, const uint8_t *dat
     return NHAL_ERR_OTHER;
 }
 
-nhal_result_t nhal_uart_read(struct nhal_uart_context * ctx, uint8_t *data, size_t len, nhal_timeout_ms timeout) {
-    if (ctx == NULL || data == NULL || len == 0 || ctx->impl_ctx == NULL) {
+nhal_result_t nhal_uart_read(struct nhal_uart_context * ctx, uint8_t *data, size_t len) {
+    if (ctx == NULL || data == NULL || len == 0) {
         return NHAL_ERR_INVALID_ARG;
     }
 
-    if (!ctx->impl_ctx->is_initialized) {
+    if (!ctx->is_initialized) {
         return NHAL_ERR_NOT_INITIALIZED;
     }
 
-    if (!ctx->impl_ctx->is_configured) {
+    if (!ctx->is_configured) {
         return NHAL_ERR_NOT_CONFIGURED;
     }
 
-    int bytes_read = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(timeout));
+    int bytes_read = uart_read_bytes(ctx->uart_bus_id, data, len, pdMS_TO_TICKS(ctx->timeout_ms));
     if (bytes_read == len) {
         return NHAL_OK;
     } else if (bytes_read >= 0) {

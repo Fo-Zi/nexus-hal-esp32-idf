@@ -7,18 +7,23 @@
 #ifndef NHAL_IMPL_ESP32_DEFS_H
 #define NHAL_IMPL_ESP32_DEFS_H
 
-#include "esp_err.h"
+// C std Includes ->
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "freertos/idf_additions.h"
-#include "driver/spi_master.h"
-#include "driver/i2c.h"
+// NHAL Includes ->
 #include "nhal_i2c_types.h"
 #include "nhal_uart_types.h"
 #include "nhal_pin_types.h"
 #include "nhal_spi_types.h"
-#include "nhal_wdt_types.h"
+
+// ESP32 Includes ->
+#include "freertos/idf_additions.h"
+#include "driver/spi_master.h"
+#include "driver/i2c.h"
+#include "hal/uart_types.h"
+#include "esp_err.h"
+
 
 //==============================================================================
 // PLATFORM-SPECIFIC CONFIGURATION STRUCTURES
@@ -32,6 +37,8 @@ struct nhal_i2c_impl_config{
     uint8_t     scl_io_num      ;
     uint8_t     sda_pullup_en   ;
     uint8_t     scl_pullup_en   ;
+    uint32_t    clock_speed_hz  ;
+    nhal_timeout_ms timeout_ms  ;
 } ;
 
 struct nhal_uart_impl_config{
@@ -48,29 +55,6 @@ struct nhal_uart_impl_config{
     uint8_t queue_msg_size  ;
 } ;
 
-struct nhal_async_impl_config{
-    uint8_t placeholder;
-};
-
-struct nhal_i2c_async_impl_config{
-    uint8_t dma_channel;
-    uint16_t max_transfer_size;
-};
-
-struct nhal_spi_async_impl_config{
-    uint8_t dma_channel;
-    uint16_t max_transfer_size;
-};
-
-struct nhal_uart_async_impl_config{
-    uint16_t tx_buffer_size;
-    uint16_t rx_buffer_size;
-    bool use_interrupts;
-};
-struct nhal_pin_id{
-    uint8_t pin_num;
-};
-
 struct nhal_pin_impl_config{
     uint8_t intr_type       ;
 } ;
@@ -80,64 +64,49 @@ struct nhal_spi_impl_config{
     uint8_t miso_pin        ;
     uint8_t sclk_pin        ;
     uint8_t cs_pin          ;
-} ;
-
-
-struct nhal_wdt_impl_config{
-    bool panic_handler;      /**< Enable panic handler on timeout */
-    bool trigger_abort;      /**< Trigger abort() on timeout */
-    uint8_t idle_core_mask;  /**< Core mask for idle task monitoring */
+    uint32_t frequency_hz   ;
+    nhal_timeout_ms timeout_ms ;
 } ;
 
 //==============================================================================
-// INTERNAL IMPLEMENTATION CONTEXT STRUCTURES
+// CONCRETE CONTEXT STRUCTURE DEFINITIONS
 //==============================================================================
-// These structures are allocated and managed by the HAL `_init` functions.
-// The application does not need to interact with them directly.
+// These provide the concrete definitions for the forward-declared context
+// structures in the interface headers, with all ESP32-specific implementation
+// data included directly.
 
-struct nhal_pin_impl_ctx{
+struct nhal_pin_context {
+    gpio_num_t pin_num;
     bool is_initialized;
     bool is_configured;
-} ;
-
-struct nhal_i2c_impl_ctx{
-    SemaphoreHandle_t mutex;
-    bool is_initialized;
-    bool is_configured;
-    bool is_driver_installed;
-
-#if defined(NHAL_I2C_ASYNC_SUPPORT)
-    i2c_cmd_handle_t async_cmd_handle;
-#endif
-} ;
-
-struct nhal_uart_impl_ctx{
-    SemaphoreHandle_t mutex;
-    bool is_initialized;
-    bool is_configured;
-    bool is_driver_installed;
-
-#if defined(NHAL_UART_ASYNC_SUPPORT)
-    QueueHandle_t uart_queue;
-#endif
+    nhal_pin_callback_t user_callback;
 };
 
-struct nhal_spi_impl_ctx{
-    SemaphoreHandle_t mutex;
+struct nhal_i2c_context {
+    i2c_port_t i2c_bus_id;
     bool is_initialized;
     bool is_configured;
     bool is_driver_installed;
+    SemaphoreHandle_t mutex;
+    nhal_timeout_ms timeout_ms;
+};
+
+struct nhal_uart_context {
+    uart_port_t uart_bus_id;
+    bool is_initialized;
+    bool is_configured;
+    bool is_driver_installed;
+    SemaphoreHandle_t mutex;
+    nhal_timeout_ms timeout_ms;
+};
+
+struct nhal_spi_context {
+    spi_host_device_t spi_bus_id;
+    bool is_initialized;
+    bool is_configured;
     spi_device_handle_t device_handle;
-
-#if defined(NHAL_SPI_ASYNC_SUPPORT)
-    spi_device_handle_t async_device_handle;
-#endif
+    SemaphoreHandle_t mutex;
+    nhal_timeout_ms timeout_ms;
 };
-
-struct nhal_wdt_impl_ctx{
-    bool is_initialized;
-    bool is_configured;
-} ;
-
 
 #endif // NHAL_IMPL_ESP32_DEFS_H
