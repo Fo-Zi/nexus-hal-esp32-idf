@@ -1,3 +1,7 @@
+![GitHub License](https://img.shields.io/github/license/Fo-Zi/nexus-hal-esp32-idf?color=lightgrey)
+![GitHub Tag](https://img.shields.io/github/v/release/Fo-Zi/nexus-hal-esp32-idf?color=brightgreen)
+[![Dependency](https://img.shields.io/badge/depends%20on-nexus--hal--interface%20v0.6.0-orange)](https://github.com/Fo-Zi/nexus-hal-interface/tree/v0.6.0)
+
 # NHAL ESP-IDF Implementation
 
 ## Overview
